@@ -26,6 +26,7 @@ public class BankWindow extends JFrame {
                 scrollPane, commandArea);
         
         split.setResizeWeight(0.7);
+        split.setDividerSize(5);
         add(split);
         setPreferredSize(new Dimension(500, 300));
     }

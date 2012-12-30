@@ -1,7 +1,7 @@
 package hesp.agents;
 
 import hesp.agents.Computation.JobStatus;
-import hesp.gui.ResourceWindow;
+import hesp.gui.ProductionWindow;
 import hesp.protocol.Action;
 import hesp.protocol.Job;
 import hesp.protocol.JobReport;
@@ -40,7 +40,7 @@ public class ProductionAgent extends HespAgent implements Computation.Listener {
     private Map<AID, AgentRelation> relations = new HashMap<>();
     
     
-    private ResourceWindow window;
+    private ProductionWindow window;
     private CountDownLatch sync = new CountDownLatch(1);
     
     private class PolicyManager {
@@ -316,8 +316,8 @@ public class ProductionAgent extends HespAgent implements Computation.Listener {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
-                window = new ResourceWindow(name);
-                window.setLocationRelativeTo(null);
+                window = new ProductionWindow(name);
+                window.pack();
                 window.setVisible(true);
                 sync.countDown();
             }

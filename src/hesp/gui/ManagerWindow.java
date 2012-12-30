@@ -11,20 +11,17 @@ import javax.swing.JMenuBar;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
-import javax.swing.JToolBar;
 import javax.swing.JTree;
 import javax.swing.SpringLayout;
-import javax.swing.SwingUtilities;
 import javax.swing.border.BevelBorder;
 
 
 public class ManagerWindow extends JFrame {
 
-    private MetagridManager manager;
+    //private MetagridManager manager;
     
     private SpringLayout layout = new SpringLayout();
     private JMenuBar menubar;
-    private JToolBar toolbar;
     private JPanel statusbar;
     private JPanel content;
     private JTree tree;
@@ -39,9 +36,7 @@ public class ManagerWindow extends JFrame {
         setLocationByPlatform(true);
         
         menubar = new JMenuBar();
-        menubar.add(new JMenu("Lasers"));
-        menubar.add(new JMenu("Bitches"));
-        menubar.add(new JMenu("Shit"));
+        menubar.add(new JMenu("File..."));
         setJMenuBar(menubar);
         
         setLayout(new BorderLayout());
@@ -50,27 +45,25 @@ public class ManagerWindow extends JFrame {
         statusbar.setBorder(new BevelBorder(BevelBorder.LOWERED));
         add(statusbar, BorderLayout.SOUTH);
         
-//        toolbar = new JToolBar("Grid toolbar");
-//        toolbar.add(new JButton("Motherfuckin' button"));
-//        add(toolbar, BorderLayout.PAGE_START);
-        
         body = new JPanel(layout);
         add(body, BorderLayout.CENTER);
         body.setLayout(new BorderLayout());
         
         tree = new JTree();
-        tree.setMinimumSize(new Dimension(70, 100));
+        JScrollPane scroll = new JScrollPane(tree);
+        scroll.setMinimumSize(new Dimension(100, 100));        
         content = new JPanel();
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
-                new JScrollPane(tree), content);
+                scroll, content);
         split.setResizeWeight(0.2);
+        split.setDividerSize(5);
         body.add(split);
         
     }
     
     public ManagerWindow(MetagridManager manager) {
         super("Grid Manager Utility");
-        this.manager = manager;
+        //this.manager = manager;
         setupUI();
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     }

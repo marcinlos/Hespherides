@@ -28,11 +28,12 @@ public abstract class HespAgent extends Agent {
     
     protected String genCID() {
         if (cidBase == null) {
-            cidBase = getLocalName() + hashCode() + 
-                    System.currentTimeMillis() % 10000 + "_";
+            cidBase = getLocalName() + hashCode() + "_" +
+                    System.currentTimeMillis() % 10000;
         }
         return cidBase + rand.nextInt(Integer.MAX_VALUE);
     }
+    
     
     private class Initiator extends CyclicBehaviour {
 

@@ -55,16 +55,16 @@ public class Computation extends TickerBehaviour {
     }
     
     /** Maximum number of concurrently running jobs */
-    private int jobSlots;
+    private int processors;
     /** Job queue - fifo */
     private List<JobStatus> jobs = new ArrayList<>();
     
     private Listener listener;
     
 
-    public Computation(Agent a, int jobSlots, Listener listener) {
+    public Computation(Agent a, int processors, Listener listener) {
         super(a, TIME_SLICE);
-        this.jobSlots = jobSlots;
+        this.processors = processors;
         this.listener = listener;
     }
     
@@ -73,23 +73,23 @@ public class Computation extends TickerBehaviour {
         jobs.add(js);
     }
     
-    public int slots() {
-        return jobSlots;
+    public int processors() {
+        return processors;
     }
     
-    public int freeSlots() {
-        if (jobs.size() > jobSlots) {
-            return 0;
-        } else {
-            return jobSlots - jobs.size();
-        }
+    public int workload() {
+        return Math.min(jobs.size(), processors);
+    }
+    
+    public int freeProcessors() {
+        return processors - workload();
     }
 
     @Override
     protected void onTick() {
         Iterator<JobStatus> it = jobs.iterator();
         int count = 0;
-        while (it.hasNext() && count++ < jobSlots) {
+        while (it.hasNext() && count++ < processors) {
             JobStatus job = it.next();
             // check for random failure
             boolean failure = failer.nextDouble() < failPerSlice;

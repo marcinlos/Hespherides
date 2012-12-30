@@ -1,7 +1,10 @@
 package hesp.gui;
 
+import hesp.agents.ClientAgent;
+
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
@@ -10,7 +13,6 @@ import javax.swing.JFrame;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTextArea;
-import javax.swing.text.DefaultCaret;
 
 public class ClientWindow extends JFrame {
     
@@ -18,24 +20,23 @@ public class ClientWindow extends JFrame {
         void command(String text);
     }
 
-    private Listener listener;
+    private ClientAgent client;
     
     private JTextArea commandText;
-    private JTextArea logArea;
-    private JScrollPane scroll;
+    private LogPanel logPanel;
     
     private void setupUI() {
         setLayout(new BorderLayout());
-        logArea = new JTextArea("Event log");
-        logArea.setEditable(false);
-        scroll = new JScrollPane(logArea);
+        setMinimumSize(new Dimension(300, 200));
+        setPreferredSize(new Dimension(400, 400));
+        
+        logPanel = new LogPanel();
         commandText = new JTextArea();
+        Font bigger = commandText.getFont().deriveFont(12f);
+        commandText.setFont(bigger);
         JScrollPane commandArea = new JScrollPane(commandText);
         JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
-                commandArea, scroll);
-        
-        DefaultCaret caret = (DefaultCaret) logArea.getCaret();
-        caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
+                commandArea, logPanel);
         
         add(split, BorderLayout.CENTER);
         JButton exec = new JButton("Execute");
@@ -43,24 +44,22 @@ public class ClientWindow extends JFrame {
         exec.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                if (listener != null) {
-                    listener.command(commandText.getText());
-                }
+                client.executeCommand(commandText.getText());
             }
         });
         add(exec, BorderLayout.PAGE_END);
         
         split.setResizeWeight(0.7);
-        setPreferredSize(new Dimension(400, 400));
+        split.setDividerSize(5);
     }
     
-    public void addMessage(String message) {
-        logArea.append("\n" + message);
+    public LogPanel getLogger() {
+        return logPanel;
     }
     
-    public ClientWindow(String name, Listener listener) {
-        super(name);
-        this.listener = listener;
+    public ClientWindow(ClientAgent client) {
+        super(client.getLocalName());
+        this.client = client;
         setupUI();
     }
     

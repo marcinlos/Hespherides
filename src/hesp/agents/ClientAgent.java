@@ -1,7 +1,6 @@
 package hesp.agents;
 
 import hesp.gui.ClientWindow;
-import hesp.gui.ClientWindow.Listener;
 import hesp.protocol.AccountCreation;
 import hesp.protocol.AccountResponse;
 import hesp.protocol.Action;
@@ -9,6 +8,8 @@ import hesp.protocol.Job;
 import hesp.protocol.JobReport;
 import hesp.protocol.JobRequestResponse;
 import hesp.protocol.Message;
+import hesp.util.LogSink;
+import hesp.util.LogItem.Level;
 import jade.core.AID;
 import jade.core.behaviours.Behaviour;
 import jade.core.behaviours.FSMBehaviour;
@@ -39,7 +40,8 @@ public class ClientAgent extends HespAgent {
     private Random rand = new Random();
     private AID bank;
     
-    private ClientWindow window;    
+    private ClientWindow window;   
+    private LogSink logger;
     
     /**
      * Client currently does not receive messages outside the scope of his
@@ -188,22 +190,17 @@ public class ClientAgent extends HespAgent {
     private void jobCompleted(final JobReport report) {
         StringBuilder sb = new StringBuilder("Job ");
         sb.append(report.getJobId()).append(": ");
+        
+        Level level;
         if (report.getStatus()) {
             sb.append("Success");
+            level = Level.SUCCESS;
         } else {
             sb.append("Failure (").append(report.getDescription()).append(")");
+            level = Level.ERROR;
         }
-        final String message = sb.toString();
-        
-        System.out.println("Job " + report.getJobId() + ": " + 
-                report.getStatus());
-        
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                window.addMessage(message);
-            }
-        });
+        String message = sb.toString();
+        logger.log(message, level);
     }
     
     /**
@@ -214,19 +211,17 @@ public class ClientAgent extends HespAgent {
     private void requestProcessed(final JobRequestResponse response) {
         StringBuilder sb = new StringBuilder("Job ");
         sb.append(response.getJobId()).append(": ");
+        
+        Level level;
         if (response.isAccepted()) {
             sb.append("Accepted");
+            level = Level.SUCCESS;
         } else {
             sb.append("Rejected (").append(response.getDetails()).append(")");
+            level = Level.ERROR;
         }
-        final String message = sb.toString();
-        
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                window.addMessage(message);
-            }
-        });
+        String message = sb.toString();
+        logger.log(message, level);
     }
 
     /**
@@ -242,7 +237,7 @@ public class ClientAgent extends HespAgent {
     /**
      * Queries yellow pages service for banking agent.
      */
-    private void findBank() {
+    private void findServices() {
         DFAgentDescription pattern = new DFAgentDescription();
         ServiceDescription sd = new ServiceDescription();
         sd.setName("grid-bank");
@@ -260,15 +255,11 @@ public class ClientAgent extends HespAgent {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
-                window = new ClientWindow(getLocalName(), new Listener() {
-                    @Override
-                    public void command(String text) {
-                        executeCommand(text);
-                    }
-                });
+                window = new ClientWindow(ClientAgent.this);
                 window.setLocationRelativeTo(null);
                 window.pack();
                 window.setVisible(true);
+                logger = window.getLogger().logSink();
             }
         });
     }
@@ -276,10 +267,8 @@ public class ClientAgent extends HespAgent {
     @Override
     public void setup() {
         super.setup();
-
         // Search for 'environment' services
-        findBank();
-        
+        findServices();
         setupGUI();
     }
     
@@ -288,7 +277,7 @@ public class ClientAgent extends HespAgent {
      * Communication with GUI is currently text-based (json). This method
      * interprets such json command.
      */
-    private void executeCommand(String text) {
+    public void executeCommand(String text) {
         try {
             JsonParser parser = new JsonParser();
             JsonObject o = (JsonObject) parser.parse(text);
@@ -306,7 +295,7 @@ public class ClientAgent extends HespAgent {
      * @sa executeCommand
      */
     private void interpretJson(JsonObject o) {
-        long id = System.currentTimeMillis();
+        long id = System.currentTimeMillis() ^ hashCode();
         if (o.has("agent")) {
             String agent = o.getAsJsonPrimitive("agent").getAsString();
             int n = 1;

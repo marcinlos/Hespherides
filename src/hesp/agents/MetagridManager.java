@@ -1,7 +1,5 @@
 package hesp.agents;
 
-import hesp.gui.ClientWindow;
-import hesp.gui.ClientWindow.Listener;
 import hesp.gui.ManagerWindow;
 import hesp.protocol.Protocols;
 import jade.content.ContentManager;
@@ -25,6 +23,9 @@ import jade.proto.AchieveREInitiator;
 import jade.util.Logger;
 
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
+import javax.swing.UIManager.LookAndFeelInfo;
+import javax.swing.UnsupportedLookAndFeelException;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -126,6 +127,23 @@ public class MetagridManager extends Agent {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
+                
+                try {
+                    for (LookAndFeelInfo info: UIManager.getInstalledLookAndFeels()) {
+                        System.out.println(info.getName() + "(" + info.getClassName() + ")");
+                        if (info.getName().equals("Windows")) {
+                            System.out.println("FTW!");
+                            UIManager.setLookAndFeel(info.getClassName());
+                        }
+                        
+                    }
+                    //UIManager.setLookAndFeel("Windows");
+                } catch (ClassNotFoundException | InstantiationException
+                        | IllegalAccessException | UnsupportedLookAndFeelException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+                
                 window = new ManagerWindow(MetagridManager.this);
                 window.pack();
                 window.setVisible(true);
@@ -169,7 +187,7 @@ public class MetagridManager extends Agent {
      * 
      * @param text String passed from user interface
      */
-    private void executeCommand(String text) {
+    public void executeCommand(String text) {
         JsonParser parser = new JsonParser();
         try {
             JsonObject o = (JsonObject) parser.parse(text);

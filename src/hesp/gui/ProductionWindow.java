@@ -1,6 +1,7 @@
 package hesp.gui;
 
 import hesp.agents.Computation.JobStatus;
+import hesp.agents.ProductionListener;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -24,7 +25,7 @@ import javax.swing.SpringLayout;
 import javax.swing.Timer;
 
 
-public class ProductionWindow extends JFrame {
+public class ProductionWindow extends JFrame implements ProductionListener {
 
     private static final int TIME_BEFORE_REMOVAL = 2000;
     private static final int TIME_BEFORE_REMOVAL_FAIL = 2000;
@@ -96,7 +97,8 @@ public class ProductionWindow extends JFrame {
         setupUI();
     }
 
-    public void addJob(JobStatus job) {
+    @Override
+    public void jobAdded(JobStatus job) {
         TaskPanel taskPanel = new TaskPanel(job);
         taskPanel.setAlignmentX(0.5f);
         panelMap.put(job.getId(), taskPanel);
@@ -104,14 +106,18 @@ public class ProductionWindow extends JFrame {
         progressPanel.add(taskPanel);
     }
 
-    public void update(JobStatus job) {
+    @Override
+    public void jobUpdate(JobStatus job) {
         TaskPanel taskPanel = panelMap.get(job.getId());
         taskPanel.setValue(job.getDone());
         progressPanel.revalidate();
         progressPanel.repaint();
     }
 
-    public void finished(JobStatus job, boolean success) {
+
+    @Override
+    public void jobFinished(JobStatus job) {
+        boolean success = job.success();
         final long id = job.getId();
         final TaskPanel taskPanel = panelMap.get(id);
         taskPanel.setValue(job.getDone());

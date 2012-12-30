@@ -2,6 +2,7 @@ package hesp.agents;
 
 import hesp.agents.Computation.JobStatus;
 import hesp.gui.ProductionWindow;
+import hesp.gui.Synchronous;
 import hesp.protocol.Action;
 import hesp.protocol.Job;
 import hesp.protocol.JobReport;
@@ -24,6 +25,7 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 
 import javax.swing.SwingUtilities;
+import javax.swing.event.EventListenerList;
 
 /**
  * @author marcinlos
@@ -39,9 +41,14 @@ public class ProductionAgent extends HespAgent implements Computation.Listener {
     
     private Map<AID, AgentRelation> relations = new HashMap<>();
     
-    
+
     private ProductionWindow window;
+    
+    /** List of production event listeners */
+    private EventListenerList listeners = new EventListenerList();
+    /** Used to ensure */
     private CountDownLatch sync = new CountDownLatch(1);
+    
     
     private class PolicyManager {
         
@@ -259,6 +266,15 @@ public class ProductionAgent extends HespAgent implements Computation.Listener {
         
     }
     
+    /**
+     * Registers new production events listener.
+     * 
+     * @param listener Listener to add to list
+     */
+    public void addListener(ProductionListener listener) {
+        listeners.add(ProductionListener.class, listener);
+    }
+    
 
     /*
     private void handleControlMessage(ACLMessage full, JsonObject message) {
@@ -279,10 +295,16 @@ public class ProductionAgent extends HespAgent implements Computation.Listener {
         }
     }*/
     
+    private ProductionListener[] listenerList() {
+        return listeners.getListeners(ProductionListener.class);
+    }
     
     private void submitJob(Job job) {
         resource.queueJob(job);
-        window.addJob(new JobStatus(job.getId(), 2 * job.getCputime()));
+        JobStatus status = new JobStatus(job.getId(), 2 * job.getCputime());
+        for (ProductionListener listener: listenerList()) {
+            listener.jobAdded(status);
+        }
     }
     
     
@@ -313,23 +335,18 @@ public class ProductionAgent extends HespAgent implements Computation.Listener {
         resource = new Computation(this, 7, this);
         addBehaviour(resource);
         
-        SwingUtilities.invokeLater(new Runnable() {
+        Synchronous.invoke(new Runnable() {
             @Override
             public void run() {
                 window = new ProductionWindow(name);
+                addListener(window);
                 window.pack();
                 window.setVisible(true);
                 sync.countDown();
             }
         });
-        try {
-            sync.await();
-        } catch (InterruptedException e) {
-            e.printStackTrace(System.err);
-        }
         
         policy.policies.put(new AID("Client", AID.ISLOCALNAME), new TokenBasedUsage(4));
-        
         System.out.println("PGA '" + name + "' created");
     }
 
@@ -342,21 +359,17 @@ public class ProductionAgent extends HespAgent implements Computation.Listener {
      * Invoked on computation tick for each job in progress.
      */
     @Override
-    public void update(final JobStatus job) {
-
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override public void run() {
-                window.update(job);
-            }
-        });
-        
+    public void update(JobStatus job) {
+        for (ProductionListener listener: listenerList()) {
+            listener.jobUpdate(job);
+        }
     }
 
     /**
      * Invoked upon completion of a job.
      */
     @Override
-    public void completed(final JobStatus job, String details) {
+    public void completed(JobStatus job, String details) {
         final boolean success = job.success();
         JobReport report = new JobReport(job.getId(), success, details);
         ACLMessage message = emptyMessage(ACLMessage.INFORM);
@@ -364,11 +377,9 @@ public class ProductionAgent extends HespAgent implements Computation.Listener {
         message.setConversationId("job" + job.getId());
         sendMessage(message, Action.JOB_COMPLETED, report);
         
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override public void run() {
-                window.finished(job, success);
-            }
-        });
+        for (ProductionListener listener: listenerList()) {
+            listener.jobFinished(job);
+        }
     }
 
 }

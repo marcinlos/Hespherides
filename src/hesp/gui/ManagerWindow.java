@@ -30,8 +30,6 @@ public class ManagerWindow extends JFrame {
     
     private void setupUI() {
         setMinimumSize(new Dimension(400, 200));
-        // known swing bug
-        //setMaximumSize(new Dimension(800, 500));
         setPreferredSize(new Dimension(500, 350));
         setLocationByPlatform(true);
         

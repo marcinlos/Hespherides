@@ -40,8 +40,13 @@ public class Computation extends TickerBehaviour {
         this.listener = listener;
     }
     
+    /**
+     * Adds job to execution queue.
+     * 
+     * @param job description of job to execute
+     */
     public void queueJob(Job job) {
-        JobProgress js = new JobProgress(job.getId(), 2 * job.getCputime());
+        JobProgress js = new JobProgress(job.getId(), job.getCputime());
         jobs.add(js);
     }
     

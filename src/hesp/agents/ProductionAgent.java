@@ -340,7 +340,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
         Synchronous.invoke(new Runnable() {
             @Override
             public void run() {
-                window = new ProductionWindow(name);
+                window = new ProductionWindow(ProductionAgent.this);
                 addListener(window);
                 window.pack();
                 window.setVisible(true);

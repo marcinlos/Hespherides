@@ -27,7 +27,6 @@ public class ManagerWindow extends JFrame {
     private JTree tree;
     private JPanel body;
     
-    
     private void setupUI() {
         setMinimumSize(new Dimension(400, 200));
         setPreferredSize(new Dimension(500, 350));

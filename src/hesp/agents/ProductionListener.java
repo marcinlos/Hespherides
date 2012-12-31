@@ -2,7 +2,6 @@ package hesp.agents;
 
 import java.util.EventListener;
 
-import hesp.agents.Computation.JobStatus;
 
 /**
  * @author marcinlos
@@ -11,12 +10,10 @@ import hesp.agents.Computation.JobStatus;
  */
 public interface ProductionListener extends EventListener {
     
-    void jobAdded(JobStatus job);
+    void jobAdded(JobProgress job);
     
-    void jobFinished(JobStatus job);
+    void jobFinished(JobProgress job);
     
-    void jobUpdate(JobStatus job);
+    void jobUpdate(JobProgress job);
     
-    
-
 }

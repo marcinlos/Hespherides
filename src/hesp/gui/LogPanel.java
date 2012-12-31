@@ -18,8 +18,10 @@ import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JTable;
 import javax.swing.ListCellRenderer;
 import javax.swing.SwingUtilities;
+import javax.swing.table.DefaultTableCellRenderer;
 
 /**
  * @author marcinlos
@@ -30,6 +32,7 @@ import javax.swing.SwingUtilities;
 public class LogPanel extends JPanel {
 
     private JList<LogItem> list;
+    private JScrollPane scroller;
     private DefaultListModel<LogItem> model;
     
     /** Mapping of log levels to colors */
@@ -45,12 +48,12 @@ public class LogPanel extends JPanel {
      * Dedicated renderer, displaying items as text labels with background
      * of appropriate color.
      */
-    private class Renderer extends JComponent implements
+    private class LogItemRenderer extends JComponent implements
             ListCellRenderer<LogItem> {
 
         private JLabel text;
 
-        public Renderer() {
+        public LogItemRenderer() {
             setLayout(new BorderLayout());
             text = new JLabel();
             text.setOpaque(true);
@@ -75,9 +78,9 @@ public class LogPanel extends JPanel {
         setLayout(new BorderLayout());
         model = new DefaultListModel<>();
         list = new JList<>(model);
-        list.setCellRenderer(new Renderer());
-        JScrollPane scroll = new JScrollPane(list);
-        add(scroll);
+        list.setCellRenderer(new LogItemRenderer());
+        scroller = new JScrollPane(list);
+        add(scroller);
     }
 
     public LogPanel() {
@@ -92,12 +95,12 @@ public class LogPanel extends JPanel {
     }
 
     private LogSink sink = new AbstractLogSink() {
-        
         @Override
         public void log(final LogItem item) {
             SwingUtilities.invokeLater(new Runnable() {
                 @Override public void run() {
                     model.addElement(item);
+                    list.ensureIndexIsVisible(model.getSize() - 1);
                 }
             });
         }

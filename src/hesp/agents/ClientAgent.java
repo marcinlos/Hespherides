@@ -305,7 +305,7 @@ public class ClientAgent extends HespAgent {
                 if (o.has("time")) {
                     time = o.getAsJsonPrimitive("time").getAsInt();
                 } else {
-                    time = 50 + rand.nextInt(50);
+                    time = 350 + rand.nextInt(50);
                 }
                 postJob(new AID(agent, AID.ISLOCALNAME), new Job(id + i, time));
             }

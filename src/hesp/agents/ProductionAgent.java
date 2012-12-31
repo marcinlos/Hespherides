@@ -1,6 +1,5 @@
 package hesp.agents;
 
-import hesp.agents.Computation.JobStatus;
 import hesp.gui.ProductionWindow;
 import hesp.gui.Synchronous;
 import hesp.protocol.Action;
@@ -8,6 +7,7 @@ import hesp.protocol.Job;
 import hesp.protocol.JobReport;
 import hesp.protocol.JobRequestResponse;
 import hesp.protocol.Message;
+import hesp.util.LogSink;
 import jade.core.AID;
 import jade.core.behaviours.Behaviour;
 import jade.core.behaviours.FSMBehaviour;
@@ -22,9 +22,7 @@ import jade.lang.acl.MessageTemplate;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
 
-import javax.swing.SwingUtilities;
 import javax.swing.event.EventListenerList;
 
 /**
@@ -33,7 +31,7 @@ import javax.swing.event.EventListenerList;
  * Agent representing Grid Production Agent, directly supervising
  * underlying resources.
  */
-public class ProductionAgent extends HespAgent implements Computation.Listener {
+public class ProductionAgent extends HespAgent implements JobProgressListener {
 
     private String name;
     private Computation resource;
@@ -43,11 +41,10 @@ public class ProductionAgent extends HespAgent implements Computation.Listener {
     
 
     private ProductionWindow window;
+    private LogSink logger;
     
     /** List of production event listeners */
-    private EventListenerList listeners = new EventListenerList();
-    /** Used to ensure */
-    private CountDownLatch sync = new CountDownLatch(1);
+    private EventListenerList listeners = new EventListenerList();    
     
     
     private class PolicyManager {
@@ -75,6 +72,11 @@ public class ProductionAgent extends HespAgent implements Computation.Listener {
     }
     
     private PolicyManager policy = new PolicyManager();
+    
+    
+    public Computation getComputation() {
+        return this.resource;
+    }
     
     
     protected boolean authorizeControl(AID sender) {
@@ -301,7 +303,7 @@ public class ProductionAgent extends HespAgent implements Computation.Listener {
     
     private void submitJob(Job job) {
         resource.queueJob(job);
-        JobStatus status = new JobStatus(job.getId(), 2 * job.getCputime());
+        JobProgress status = new JobProgress(job.getId(), 2 * job.getCputime());
         for (ProductionListener listener: listenerList()) {
             listener.jobAdded(status);
         }
@@ -332,7 +334,7 @@ public class ProductionAgent extends HespAgent implements Computation.Listener {
         name = getLocalName();
         findMaster();
         
-        resource = new Computation(this, 7, this);
+        resource = new Computation(this, 7, 50, this);
         addBehaviour(resource);
         
         Synchronous.invoke(new Runnable() {
@@ -342,24 +344,25 @@ public class ProductionAgent extends HespAgent implements Computation.Listener {
                 addListener(window);
                 window.pack();
                 window.setVisible(true);
-                sync.countDown();
+                logger = window.getLogger().logSink();
             }
         });
         
-        policy.policies.put(new AID("Client", AID.ISLOCALNAME), new TokenBasedUsage(4));
-        System.out.println("PGA '" + name + "' created");
+        policy.policies.put(new AID("Client", AID.ISLOCALNAME), 
+                new TokenBasedUsage(4));
+        logger.success("PGA '" + name + "' created");
     }
 
     @Override
     public void takeDown() {
-        System.out.println("PGA '" + name + "' shutting down");
+        logger.info("PGA '" + name + "' shutting down");
     }
 
     /**
      * Invoked on computation tick for each job in progress.
      */
     @Override
-    public void update(JobStatus job) {
+    public void update(JobProgress job) {
         for (ProductionListener listener: listenerList()) {
             listener.jobUpdate(job);
         }
@@ -369,8 +372,8 @@ public class ProductionAgent extends HespAgent implements Computation.Listener {
      * Invoked upon completion of a job.
      */
     @Override
-    public void completed(JobStatus job, String details) {
-        final boolean success = job.success();
+    public void completed(JobProgress job, String details) {
+        final boolean success = job.hasSucceeded();
         JobReport report = new JobReport(job.getId(), success, details);
         ACLMessage message = emptyMessage(ACLMessage.INFORM);
         message.addReceiver(getAID());

@@ -19,88 +19,99 @@ import java.util.Random;
 public class Computation extends TickerBehaviour {
     
     /** Time between invocations in milliseconds */
-    public static final long TIME_SLICE = 50;
+    private long timeSlice = 50;
     
     private double failPerSlice = 0.001;
     private Random failer = new Random();
     
-    /**
-     * Structure containing job-in-progress information. 
-     */
-    public static class JobStatus {
-        private long id;
-        private int required;
-        private int done = 0;
-        
-        public JobStatus(long id, int required) {
-            this.id = id;
-            this.required = required;
-        }
-        
-        public long getId() {
-            return id;
-        }
-        
-        public int getRequired() {
-            return required;
-        }
-        
-        public int getDone() {
-            return done;
-        }
-        
-        public boolean success() {
-            return done == required;
-        }
-    }
-    
     /** Maximum number of concurrently running jobs */
     private int processors;
     /** Job queue - fifo */
-    private List<JobStatus> jobs = new ArrayList<>();
+    private List<JobProgress> jobs = new ArrayList<>();
     
-    private Listener listener;
+    private JobProgressListener listener;
     
 
-    public Computation(Agent a, int processors, Listener listener) {
-        super(a, TIME_SLICE);
+    public Computation(Agent a, int processors, long timeSlice, 
+            JobProgressListener listener) {
+        super(a, timeSlice);
+        this.timeSlice = timeSlice;
         this.processors = processors;
         this.listener = listener;
     }
     
     public void queueJob(Job job) {
-        JobStatus js = new JobStatus(job.getId(), 2 * job.getCputime());
+        JobProgress js = new JobProgress(job.getId(), 2 * job.getCputime());
         jobs.add(js);
     }
     
-    public int processors() {
+    /**
+     * @return total number of job slots (both used and unused)
+     */
+    public int getProcessors() {
         return processors;
     }
     
+    /**
+     * Changes the total number of job slots available for this resource
+     * 
+     * @param processors number of job slots
+     */
+    public void setProcessors(int processors) {
+        this.processors = processors;
+    }
+    
+    /**
+     * @return number of milliseconds between consecutive job updates
+     */
+    public long getTimeSlice() {
+        return timeSlice;
+    }
+    
+    /**
+     * Sets the time between consecutive job updates
+     * 
+     * @param timeSlice number of milliseconds
+     */
+    public void setTimeSlice(long timeSlice) {
+        this.timeSlice = timeSlice;
+
+        // Only way to change TickerBehaviour's period
+        reset(timeSlice);
+    }
+    
+    /**
+     * @return number of currently running jobs
+     */
     public int workload() {
         return Math.min(jobs.size(), processors);
     }
     
+    /**
+     * @return number of free job slots (processors)
+     */
     public int freeProcessors() {
         return processors - workload();
     }
 
     @Override
     protected void onTick() {
-        Iterator<JobStatus> it = jobs.iterator();
+        Iterator<JobProgress> it = jobs.iterator();
         int count = 0;
         while (it.hasNext() && count++ < processors) {
-            JobStatus job = it.next();
+            JobProgress job = it.next();
+            job.update();
             // check for random failure
             boolean failure = failer.nextDouble() < failPerSlice;
             if (failure) {
+                job.fail();
                 it.remove();
                 if (listener != null) {
                     listener.completed(job, "Critical hardware failure");
                 } 
             }
             // remove & inform listener
-            else if (++ job.done == job.required) {
+            else if (job.getWorkDone() == job.getWorkRequired()) {
                 it.remove();
                 if (listener != null) {
                     listener.completed(job, null);
@@ -110,20 +121,6 @@ public class Computation extends TickerBehaviour {
                 listener.update(job);
             }
         }
-    }
-    
-    /**
-     * @author marcinlos
-     *
-     * Listener interface for monitoring progress & completion events for 
-     * queued jobs.
-     */
-    public interface Listener {
-        
-        void update(JobStatus job);
-        
-        void completed(JobStatus job, String details);
-        
     }
     
 }

@@ -1,94 +1,103 @@
 package hesp.gui;
 
-import hesp.agents.Computation.JobStatus;
+import hesp.agents.JobProgress;
+import hesp.agents.JobStatus;
 import hesp.agents.ProductionListener;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-import javax.swing.BoxLayout;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
-import javax.swing.Spring;
-import javax.swing.SpringLayout;
+import javax.swing.JTable;
+import javax.swing.SwingConstants;
 import javax.swing.Timer;
-
+import javax.swing.table.AbstractTableModel;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.JTableHeader;
+import javax.swing.table.TableCellRenderer;
+import javax.swing.table.TableColumn;
+import javax.swing.table.TableColumnModel;
 
 public class ProductionWindow extends JFrame implements ProductionListener {
 
     private static final int TIME_BEFORE_REMOVAL = 2000;
     private static final int TIME_BEFORE_REMOVAL_FAIL = 2000;
 
-    private List<TaskPanel> panels = new ArrayList<TaskPanel>();
-    private Map<Long, TaskPanel> panelMap = new HashMap<>();
+    private List<JobProgress> jobsInProgress = new ArrayList<>();
 
-    private JPanel progressPanel;
     private JPanel controlPanel;
-    private LogPanel log;
-
+    private LogPanel logPanel;
+    
+    private ProgressPanel progressPanel = new ProgressPanel();
+    
+    
+    private int findJob(long id) {
+        int i = 0;
+        for (JobProgress job : jobsInProgress) {
+            if (job.getId() == id) {
+                return i;
+            } else {
+                ++i;
+            }
+        }
+        return -1;
+    }
+    
     private void setupUI() {
         setMinimumSize(new Dimension(500, 350));
         setPreferredSize(new Dimension(650, 450));
         setLocationByPlatform(true);
         setLayout(new BorderLayout());
 
-        // Top-left panel (progress bars)
-        progressPanel = new JPanel();
-        JScrollPane panelScroll = new JScrollPane(progressPanel);
-        panelScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        progressPanel.setLayout(new BoxLayout(progressPanel, BoxLayout.Y_AXIS));
-
         controlPanel = new JPanel();
-
         JSplitPane topSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
-                panelScroll, controlPanel);
+                progressPanel, controlPanel);
         topSplit.setResizeWeight(0.5);
         topSplit.setDividerSize(5);
-        panelScroll.setMinimumSize(new Dimension(200, 100));
+        progressPanel.setMinimumSize(new Dimension(200, 100));
 
-        log = new LogPanel();
-        log.setMinimumSize(new Dimension(100, 50));
+        logPanel = new LogPanel();
+        logPanel.setMinimumSize(new Dimension(100, 50));
 
         JSplitPane mainSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
-                topSplit, log);
+                topSplit, logPanel);
         mainSplit.setResizeWeight(0.8);
         mainSplit.setDividerSize(5);
-        
-//        View logView = new View("Log", null, logScroll);
-//        
-//        ViewMap viewMap = new ViewMap();
-//        viewMap.addView(0, new View("Tasks", null, panelScroll));
-//        viewMap.addView(1, logView);
-//        viewMap.addView(2, new View("Control", null, controlPanel));
-//
-//        RootWindow rootWindow = DockingUtil.createRootWindow(viewMap, true);
-//        
-//        rootWindow.getWindowBar(Direction.DOWN).setEnabled(true);
-//        rootWindow.getWindowBar(Direction.DOWN).addTab(logView);
-//        
-//        
-//        DockingWindowsTheme theme = new ShapedGradientDockingTheme();
-//        rootWindow.getRootWindowProperties().addSuperObject(
-//        theme.getRootWindowProperties());
-//        RootWindowProperties titleBarStyleProperties =
-//        PropertiesUtil.createTitleBarStyleRootWindowProperties();
-//        // Enable title bar style
-//        rootWindow.getRootWindowProperties().addSuperObject(
-//        titleBarStyleProperties);
-        
-        //add(rootWindow);
-        
+
+        // View logView = new View("Log", null, logScroll);
+        //
+        // ViewMap viewMap = new ViewMap();
+        // viewMap.addView(0, new View("Tasks", null, panelScroll));
+        // viewMap.addView(1, logView);
+        // viewMap.addView(2, new View("Control", null, controlPanel));
+        //
+        // RootWindow rootWindow = DockingUtil.createRootWindow(viewMap, true);
+        //
+        // rootWindow.getWindowBar(Direction.DOWN).setEnabled(true);
+        // rootWindow.getWindowBar(Direction.DOWN).addTab(logView);
+        //
+        //
+        // DockingWindowsTheme theme = new ShapedGradientDockingTheme();
+        // rootWindow.getRootWindowProperties().addSuperObject(
+        // theme.getRootWindowProperties());
+        // RootWindowProperties titleBarStyleProperties =
+        // PropertiesUtil.createTitleBarStyleRootWindowProperties();
+        // // Enable title bar style
+        // rootWindow.getRootWindowProperties().addSuperObject(
+        // titleBarStyleProperties);
+
+        // add(rootWindow);
+
         add(mainSplit, BorderLayout.CENTER);
     }
 
@@ -98,88 +107,194 @@ public class ProductionWindow extends JFrame implements ProductionListener {
     }
 
     @Override
-    public void jobAdded(JobStatus job) {
-        TaskPanel taskPanel = new TaskPanel(job);
-        taskPanel.setAlignmentX(0.5f);
-        panelMap.put(job.getId(), taskPanel);
-        panels.add(taskPanel);
-        progressPanel.add(taskPanel);
+    public void jobAdded(JobProgress job) {
+        jobsInProgress.add(job);
+        progressPanel.rowAdded(jobsInProgress.size() - 1);
     }
 
     @Override
-    public void jobUpdate(JobStatus job) {
-        TaskPanel taskPanel = panelMap.get(job.getId());
-        taskPanel.setValue(job.getDone());
-        progressPanel.revalidate();
-        progressPanel.repaint();
+    public void jobUpdate(JobProgress job) {
+        int row = findJob(job.getId());
+        jobsInProgress.set(row, job);
+        progressPanel.rowUpdated(row);
     }
 
-
     @Override
-    public void jobFinished(JobStatus job) {
-        boolean success = job.success();
-        final long id = job.getId();
-        final TaskPanel taskPanel = panelMap.get(id);
-        taskPanel.setValue(job.getDone());
+    public void jobFinished(final JobProgress job) {
+        boolean success = job.hasSucceeded();
         int time;
         if (success) {
             time = TIME_BEFORE_REMOVAL;
-            taskPanel.setBackground(Color.GREEN);
+            int row = findJob(job.getId());
+            progressPanel.rowUpdated(row);
         } else {
             time = TIME_BEFORE_REMOVAL_FAIL;
-            taskPanel.setBackground(Color.RED);
         }
-        new Timer(time, new ActionListener() {
+        Timer timer = new Timer(time, new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                panelMap.remove(id);
-                progressPanel.remove(taskPanel);
-                panels.remove(taskPanel);
-                progressPanel.revalidate();
-                progressPanel.repaint();
+                int row = findJob(job.getId());
+                jobsInProgress.remove(row);
+                progressPanel.rowDeleted(row);
             }
-        }).start();
+        });
+        timer.setRepeats(false);
+        timer.start();
+    }
+
+    public LogPanel getLogger() {
+        return logPanel;
     }
 
     /**
-     * Panel with information about job progress.
+     * Model of table showing job progress and state. 
      */
-    private class TaskPanel extends JPanel {
+    private static class JobProgressModel extends AbstractTableModel {
 
-        private JLabel label;
-        private JProgressBar progressBar;
-
-        public TaskPanel(JobStatus job) {
-            SpringLayout layout = new SpringLayout();
-            setLayout(layout);
-
-            label = new JLabel("Job " + job.getId());
-            progressBar = new JProgressBar(0, job.getRequired());
-            add(label);
-            add(progressBar);
-
-            SpringLayout.Constraints cons = layout.getConstraints(label);
-            cons.setX(Spring.constant(5));
-            cons.setY(Spring.constant(5));
-            cons.setWidth(Spring.constant(100));
-
-            cons = layout.getConstraints(progressBar);
-            cons.setY(Spring.constant(5));
-
-            layout.putConstraint(SpringLayout.WEST, progressBar, 3,
-                    SpringLayout.EAST, label);
-
-            layout.putConstraint(SpringLayout.EAST, this, 5, SpringLayout.EAST,
-                    progressBar);
-
-            Spring height = cons.getHeight();
-            height = Spring.sum(Spring.constant(10), height);
-            cons = layout.getConstraints(this);
-            cons.setHeight(height);
+        private static final String[] columnNames = {
+            "Job id", "% done", "Progress"
+        };
+        
+        public static class Value {
+            public final JobStatus status;
+            public final Object value;
+            
+            public Value(JobStatus status, Object value) {
+                this.status = status;
+                this.value = value;
+            }
+        }
+        
+        private final List<JobProgress> jobsInProgress;
+        
+        public JobProgressModel(List<JobProgress> jobsInProgress) {
+            this.jobsInProgress = jobsInProgress;
+        }
+        
+        @Override
+        public String getColumnName(int col) {
+            return columnNames[col].toString();
+        }
+        
+        @Override
+        public int getColumnCount() {
+            return 3;
         }
 
-        public void setValue(int value) {
-            progressBar.setValue(value);
+        @Override
+        public int getRowCount() {
+            return jobsInProgress.size();
+        }
+
+        @Override
+        public Object getValueAt(int rowIndex, int columnIndex) {
+            JobProgress job = jobsInProgress.get(rowIndex);
+            return job;
+        }
+
+    }
+
+    private class JobProgressBarRenderer extends JPanel implements
+            TableCellRenderer {
+
+        private JProgressBar progressBar = new JProgressBar();
+        
+        public JobProgressBarRenderer() {
+            setLayout(new BorderLayout());
+            add(progressBar);
+            progressBar.setMinimum(0);
+        }
+        
+        @Override
+        public Component getTableCellRendererComponent(JTable table,
+                Object value, boolean isSelected, boolean hasFocus, int row,
+                int column) {
+            JobProgress status = (JobProgress) value;
+            progressBar.setMaximum(status.getWorkRequired());
+            progressBar.setValue(status.getWorkDone());
+            return this;
+        }
+
+    }
+    
+    /**
+     * Displays text information about job progress with appropriate background.
+     */
+    private class JobProgressCellRenderer extends DefaultTableCellRenderer {
+
+        public Component getTableCellRendererComponent(JTable table,
+                Object value, boolean selected, boolean focused, int row,
+                int column) {
+            JobProgress status = (JobProgress) value;
+            if (status.hasSucceeded()) {
+                setBackground(Color.GREEN);
+            } else if (status.hasFailed()) {
+                setBackground(Color.RED);
+            } else {
+                setBackground(null);
+            }
+            setOpaque(true);
+            Object actualValue = null;
+            switch (column) {
+            case 0:
+                actualValue = status.getId();
+                setHorizontalAlignment(SwingConstants.LEFT);
+                break;
+            case 1:
+                actualValue = String.format("%.2f%%", status.getCompletionPercent());
+                setHorizontalAlignment(SwingConstants.RIGHT);
+            }
+            super.getTableCellRendererComponent(table, actualValue, selected,
+                    focused, row, column);
+
+            return this;
+        }
+    }
+    
+    private class ProgressPanel extends JPanel {
+
+        private JTable table;
+        private AbstractTableModel model = new JobProgressModel(jobsInProgress);
+
+        public ProgressPanel() {
+            setLayout(new BorderLayout());
+            table = new JTable(model);
+            table.setFillsViewportHeight(true);
+            table.setAutoResizeMode(JTable.AUTO_RESIZE_NEXT_COLUMN);
+            
+            // Renderer is currently position-based, and reordering columns
+            // displays weird, if consistent and predictable, behaviour.
+            JTableHeader header = table.getTableHeader();
+            header.setReorderingAllowed(false);
+            
+            JScrollPane scroller = new JScrollPane(table);
+            add(scroller);
+            
+            TableColumnModel column = table.getColumnModel();
+            TableColumn idCol = column.getColumn(0);
+            TableColumn percentageCol = column.getColumn(1);
+
+            TableCellRenderer textRenderer = new JobProgressCellRenderer();
+            idCol.setCellRenderer(textRenderer);
+            percentageCol.setCellRenderer(textRenderer);
+
+            idCol.setMinWidth(80);
+            percentageCol.setMinWidth(50);
+            
+            TableColumn progressCol = column.getColumn(2);
+            progressCol.setCellRenderer(new JobProgressBarRenderer());
+        }
+        
+        public void rowAdded(int row) {
+            model.fireTableRowsDeleted(row, row);
+        }
+        
+        public void rowUpdated(int row) {
+            model.fireTableRowsUpdated(row, row);
+        }
+        
+        public void rowDeleted(int row) {
+            model.fireTableRowsDeleted(row, row);
         }
     }
 

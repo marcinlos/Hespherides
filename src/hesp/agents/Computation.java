@@ -116,7 +116,7 @@ public class Computation extends TickerBehaviour {
                 } 
             }
             // remove & inform listener
-            else if (job.getWorkDone() == job.getWorkRequired()) {
+            else if (job.hasSucceeded()) {
                 it.remove();
                 if (listener != null) {
                     listener.completed(job, null);

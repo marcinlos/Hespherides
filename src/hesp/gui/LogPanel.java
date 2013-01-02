@@ -37,9 +37,9 @@ public class LogPanel extends JPanel {
     private static final Map<Level, Color> colors = new EnumMap<>(Level.class);
     
     static {
-        colors.put(Level.ERROR, new Color(255, 135, 135));
+        colors.put(Level.ERROR, Colors.FAILURE);
         colors.put(Level.INFO, Color.WHITE);
-        colors.put(Level.SUCCESS, new Color(135, 255, 135));
+        colors.put(Level.SUCCESS, Colors.SUCCESS);
     }
 
     /**

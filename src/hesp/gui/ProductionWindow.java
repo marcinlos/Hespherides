@@ -1,5 +1,6 @@
 package hesp.gui;
 
+import hesp.agents.Computation;
 import hesp.agents.JobProgress;
 import hesp.agents.ProductionAgent;
 import hesp.agents.ProductionListener;
@@ -98,9 +99,14 @@ public class ProductionWindow extends JFrame implements ProductionListener {
     }
 
     @Override
-    public void jobAdded(JobProgress job) {
+    public void jobQueued(JobProgress job) {
         jobsInProgress.add(job);
         progressPanel.rowAdded(jobsInProgress.size() - 1);
+    }
+    
+    @Override
+    public void jobStarted(JobProgress job) {
+        updateWorkloadBar();
     }
 
     @Override
@@ -132,10 +138,19 @@ public class ProductionWindow extends JFrame implements ProductionListener {
         });
         timer.setRepeats(false);
         timer.start();
+        updateWorkloadBar();
     }
 
     public LogPanel getLogger() {
         return logPanel;
+    }
+
+    
+    private void updateWorkloadBar() {
+        Computation comp = agent.getComputation();
+        int total = comp.getProcessors();
+        int value = comp.workload();
+        controlPanel.workloadChanged(value, total);
     }
 
 }

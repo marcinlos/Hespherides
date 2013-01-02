@@ -33,18 +33,23 @@ public class ProductionControlPanel extends JPanel {
     private JTabbedPane tabPanel;
     private ComputationPanel computationPanel;
     private PolicyPanel policyPanel;
+    private WorkloadBar workloadBar;
     
     private void setupUI() {
         setLayout(new BorderLayout());
         setMinimumSize(new Dimension(200, 100));
         
         tabPanel = new JTabbedPane();
-        add(tabPanel);
-        
         computationPanel = new ComputationPanel();
         policyPanel = new PolicyPanel();
         tabPanel.addTab("Computation", computationPanel);
         tabPanel.addTab("Policy", policyPanel);
+        int workload = computation.workload();
+        int freeProcessors = computation.freeProcessors();
+        workloadBar = new WorkloadBar(workload, freeProcessors);
+        
+        add(tabPanel);
+        add(workloadBar, BorderLayout.PAGE_END);
     }
     
     public ProductionControlPanel(ProductionAgent agent) {
@@ -81,7 +86,10 @@ public class ProductionControlPanel extends JPanel {
                 @Override
                 public void stateChanged(ChangeEvent e) {
                     if (! slider.getValueIsAdjusting()) {
-                        computation.setProcessors(slider.getValue());
+                        int value = slider.getValue();
+                        computation.setProcessors(value);
+                        int workload = computation.workload();
+                        workloadChanged(workload, value);
                     }
                 }
             });
@@ -108,6 +116,11 @@ public class ProductionControlPanel extends JPanel {
             add(failLabel, c);
         }
         
+    }
+    
+    public void workloadChanged(int workload, int max) {
+        workloadBar.setMaxValue(max);
+        workloadBar.setValue(workload);
     }
     
     

@@ -1,5 +1,10 @@
 package hesp.agents;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.Charset;
+import java.nio.charset.spi.CharsetProvider;
+
 import hesp.gui.ManagerWindow;
 import hesp.protocol.Protocols;
 import jade.content.ContentManager;
@@ -64,6 +69,7 @@ public class MetagridManager extends Agent {
      */
     private void createAgent(Class<?> clazz, String name) {
         try {
+            // Fill description of an agent to be created
             CreateAgent ca = new CreateAgent();
             ca.setAgentName(name);
             ca.setClassName(clazz.getCanonicalName());
@@ -77,11 +83,11 @@ public class MetagridManager extends Agent {
             req.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
             getContentManager().fillContent(req, act);
             
-            // AMS sends a response
+            // AMS sends a response, 
             addBehaviour(new AchieveREInitiator(this, req) {
                 @Override
                 protected void handleInform(ACLMessage inform) {
-                    System.out.println("Success");
+                    logger.severe("Success");
                 }
 
                 @Override
@@ -90,7 +96,11 @@ public class MetagridManager extends Agent {
                 }
             });
         } catch (CodecException | OntologyException e) {
-            e.printStackTrace(System.err);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            PrintStream printer = new PrintStream(out);
+            e.printStackTrace(printer);
+            logger.severe(out.toString());
+            //e.printStackTrace(System.err);
         }
     }
     

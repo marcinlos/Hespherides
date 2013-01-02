@@ -31,9 +31,9 @@ import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
 
 /**
- * @author marcinlos
- *
  * Agent initiating the job requests, controlled by the client of a system.
+ *
+ * @author marcinlos
  */
 public class ClientAgent extends HespAgent {
     
@@ -189,14 +189,16 @@ public class ClientAgent extends HespAgent {
      */
     private void jobCompleted(final JobReport report) {
         StringBuilder sb = new StringBuilder("Job ");
-        sb.append(report.getJobId()).append(": ");
+        String id = String.format("%x", report.getJobId()); 
+        sb.append(id).append(": ");
         
         Level level;
         if (report.getStatus()) {
             sb.append("Success");
             level = Level.SUCCESS;
         } else {
-            sb.append("Failure (").append(report.getDescription()).append(")");
+            String description = report.getDescription();
+            sb.append("Failure (").append(description).append(")");
             level = Level.ERROR;
         }
         String message = sb.toString();
@@ -210,14 +212,16 @@ public class ClientAgent extends HespAgent {
      */
     private void requestProcessed(final JobRequestResponse response) {
         StringBuilder sb = new StringBuilder("Job ");
-        sb.append(response.getJobId()).append(": ");
+        String id = String.format("%x", response.getJobId());
+        sb.append(id).append(": ");
         
         Level level;
         if (response.isAccepted()) {
             sb.append("Accepted");
             level = Level.SUCCESS;
         } else {
-            sb.append("Rejected (").append(response.getDetails()).append(")");
+            String details = response.getDetails();
+            sb.append("Rejected (").append(details).append(")");
             level = Level.ERROR;
         }
         String message = sb.toString();
@@ -230,7 +234,7 @@ public class ClientAgent extends HespAgent {
      * @param target Agent, to which direct the request 
      * @param job Details of the job to be scheduled
      */
-    private void postJob(AID target, Job job) {
+    public void postJob(AID target, Job job) {
         addBehaviour(new JobExecutor(target, job));
     }
     

@@ -59,6 +59,8 @@ class ProgressPanel extends JPanel {
         
         TableColumn progressCol = column.getColumn(2);
         progressCol.setCellRenderer(new JobProgressBarRenderer());
+        
+        table.setShowGrid(false);
     }
     
     public void rowAdded(int row) {
@@ -77,16 +79,16 @@ class ProgressPanel extends JPanel {
      * Renders progress bar as a cell in the table.
      */
     private class JobProgressBarRenderer extends JPanel implements
-    TableCellRenderer {
-        
+            TableCellRenderer {
+
         private JProgressBar progressBar = new JProgressBar();
-        
+
         public JobProgressBarRenderer() {
             setLayout(new BorderLayout());
             add(progressBar);
             progressBar.setMinimum(0);
         }
-        
+
         @Override
         public Component getTableCellRendererComponent(JTable table,
                 Object value, boolean isSelected, boolean hasFocus, int row,
@@ -96,7 +98,7 @@ class ProgressPanel extends JPanel {
             progressBar.setValue(status.getWorkDone());
             return this;
         }
-        
+
     }
 
     /**
@@ -110,9 +112,9 @@ class ProgressPanel extends JPanel {
             JobProgress status = (JobProgress) value;
             // Set the background color depending on execution status
             if (status.hasSucceeded()) {
-                setBackground(Color.GREEN);
+                setBackground(Colors.SUCCESS);
             } else if (status.hasFailed()) {
-                setBackground(Color.RED);
+                setBackground(Colors.FAILURE);
             } else {
                 setBackground(null);
             }
@@ -120,7 +122,7 @@ class ProgressPanel extends JPanel {
             Object actualValue = null;
             switch (column) {
             case 0:
-                actualValue = status.getId();
+                actualValue = String.format("%x", status.getId());
                 setHorizontalAlignment(SwingConstants.LEFT);
                 break;
             case 1:

@@ -10,11 +10,11 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * @author marcinlos
- * 
  * Behaviour simulating computation of the underlying resource. It is 
  * realized as an infinite loop, where each iteration represents a fixed
  * timestep (time slice given to clients). 
+ * 
+ * @author marcinlos
  */
 public class Computation extends TickerBehaviour {
     
@@ -105,7 +105,7 @@ public class Computation extends TickerBehaviour {
         int count = 0;
         while (it.hasNext() && count++ < processors) {
             JobProgress job = it.next();
-            job.update();
+            updateJob(job);
             // check for random failure
             boolean failure = failer.nextDouble() < failPerSlice;
             if (failure) {
@@ -126,6 +126,16 @@ public class Computation extends TickerBehaviour {
                 listener.update(job);
             }
         }
+    }
+    
+    private void updateJob(JobProgress job) {
+        if (! job.isRunning()) {
+            job.start();
+            if (listener != null) {
+                listener.started(job);
+            }
+        }
+        job.update();
     }
     
 }

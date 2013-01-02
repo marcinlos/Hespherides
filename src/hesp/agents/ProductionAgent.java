@@ -305,7 +305,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
         resource.queueJob(job);
         JobProgress status = new JobProgress(job.getId(), 2 * job.getCputime());
         for (ProductionListener listener: listenerList()) {
-            listener.jobAdded(status);
+            listener.jobQueued(status);
         }
     }
     
@@ -382,6 +382,14 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
         
         for (ProductionListener listener: listenerList()) {
             listener.jobFinished(job);
+        }
+    }
+
+
+    @Override
+    public void started(JobProgress job) {
+        for (ProductionListener listener: listenerList()) {
+            listener.jobStarted(job);
         }
     }
 

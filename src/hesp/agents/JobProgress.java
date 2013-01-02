@@ -48,6 +48,10 @@ public class JobProgress {
         return status == JobStatus.FAILED;
     }
     
+    public boolean isRunning() {
+        return status == JobStatus.IN_PROGRESS;
+    }
+    
     /**
      * Causes the job to fail instantly.
      */

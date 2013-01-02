@@ -1,6 +1,7 @@
 package hesp.agents;
 
 import hesp.protocol.Job;
+import hesp.protocol.JobParameters;
 import jade.core.Agent;
 import jade.core.behaviours.TickerBehaviour;
 
@@ -46,7 +47,9 @@ public class Computation extends TickerBehaviour {
      * @param job description of job to execute
      */
     public void queueJob(Job job) {
-        JobProgress js = new JobProgress(job.getId(), job.getCputime());
+        long id = job.getId();
+        JobParameters params = job.getParameters();
+        JobProgress js = new JobProgress(id, params.getCputime());
         jobs.add(js);
     }
     

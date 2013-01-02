@@ -4,6 +4,7 @@ import hesp.gui.ProductionWindow;
 import hesp.gui.Synchronous;
 import hesp.protocol.Action;
 import hesp.protocol.Job;
+import hesp.protocol.JobParameters;
 import hesp.protocol.JobReport;
 import hesp.protocol.JobRequestResponse;
 import hesp.protocol.Message;
@@ -303,7 +304,9 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
     
     private void submitJob(Job job) {
         resource.queueJob(job);
-        JobProgress status = new JobProgress(job.getId(), 2 * job.getCputime());
+        long id = job.getId();
+        JobParameters params = job.getParameters();
+        JobProgress status = new JobProgress(id, params.getCputime());
         for (ProductionListener listener: listenerList()) {
             listener.jobQueued(status);
         }

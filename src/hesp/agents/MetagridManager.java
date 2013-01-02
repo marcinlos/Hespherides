@@ -1,10 +1,5 @@
 package hesp.agents;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
-import java.nio.charset.Charset;
-import java.nio.charset.spi.CharsetProvider;
-
 import hesp.gui.ManagerWindow;
 import hesp.protocol.Protocols;
 import jade.content.ContentManager;
@@ -26,6 +21,9 @@ import jade.domain.JADEAgentManagement.JADEManagementOntology;
 import jade.lang.acl.ACLMessage;
 import jade.proto.AchieveREInitiator;
 import jade.util.Logger;
+
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;

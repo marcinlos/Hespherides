@@ -1,19 +1,14 @@
 package hesp.protocol;
 
-import jade.content.Concept;
-import jade.util.leap.Serializable;
 
-public class Job implements Concept, Serializable {
+public class Job {
     private long id;
-    private int cputime;
     
-    public Job() {
-        
-    }
-    
-    public Job(long id, int cputime) {
+    private JobParameters parameters;// = new JobParameters();
+
+    public Job(long id, JobParameters params) {
         this.id = id;
-        this.cputime = cputime;
+        this.parameters = params;
     }
 
     public long getId() {
@@ -24,13 +19,18 @@ public class Job implements Concept, Serializable {
         this.id = id;
     }
     
-    public int getCputime() {
-        return cputime;
+    public JobParameters getParameters() {
+        return parameters;
     }
 
-    public void setCputime(int cputime) {
-        this.cputime = cputime;
+    /**
+     * Utility method to generate reasonably likely unique job identifiers.
+     * 
+     * @param source Object requesting unique id
+     * @param seed Random integral value
+     * @return unique (with high probability) job identifier
+     */
+    public static long generateId(Object source, long seed) {
+        return System.nanoTime() ^ source.hashCode() + seed;
     }
-    
-    
 }

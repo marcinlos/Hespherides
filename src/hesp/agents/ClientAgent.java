@@ -5,6 +5,7 @@ import hesp.protocol.AccountCreation;
 import hesp.protocol.AccountResponse;
 import hesp.protocol.Action;
 import hesp.protocol.Job;
+import hesp.protocol.JobParameters;
 import hesp.protocol.JobReport;
 import hesp.protocol.JobRequestResponse;
 import hesp.protocol.Message;
@@ -311,7 +312,7 @@ public class ClientAgent extends HespAgent {
                 } else {
                     time = 350 + rand.nextInt(50);
                 }
-                postJob(new AID(agent, AID.ISLOCALNAME), new Job(id + i, time));
+                postJob(new AID(agent, AID.ISLOCALNAME), new Job(id + i, new JobParameters(time)));
             }
         } else {
             final ACLMessage message = emptyInitMessage(ACLMessage.REQUEST);

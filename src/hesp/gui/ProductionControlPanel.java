@@ -4,17 +4,19 @@ import hesp.agents.Computation;
 import hesp.agents.ProductionAgent;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 
-import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSlider;
+import javax.swing.JSpinner;
 import javax.swing.JTabbedPane;
+import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -27,7 +29,7 @@ import javax.swing.event.ChangeListener;
  */
 public class ProductionControlPanel extends JPanel {
     
-    //private ProductionAgent agent;
+    private ProductionAgent agent;
     private Computation computation;
     
     private JTabbedPane tabPanel;
@@ -53,7 +55,7 @@ public class ProductionControlPanel extends JPanel {
     }
     
     public ProductionControlPanel(ProductionAgent agent) {
-        //this.agent = agent;
+        this.agent = agent;
         this.computation = agent.getComputation();
         setupUI();
     }
@@ -61,26 +63,38 @@ public class ProductionControlPanel extends JPanel {
     
     private class ComputationPanel extends JPanel {
         
+        private JLabel processorsLabel;
+        private JSlider slider;
+        private JLabel failLabel;
+        private JSpinner failSpinner;
+
         public ComputationPanel() {
             GridBagLayout layout = new GridBagLayout();
             setLayout(layout);
-
-            GridBagConstraints c = new GridBagConstraints();
             
-            JLabel processorsLabel = new JLabel("Processors");
+            createWidgets();
+            fillLayout();
+        }
+
+        private void createWidgets() {
+            processorsLabel = new JLabel("Processors");
             processorsLabel.setToolTipText("Number of independent " + 
                     "processing units");
-            processorsLabel.setBorder(BorderFactory.createLineBorder(Color.GREEN));
             processorsLabel.setHorizontalAlignment(SwingConstants.RIGHT);
             
-            final JSlider slider = 
-                    new JSlider(SwingConstants.HORIZONTAL, 0, 20, 1);
+            failLabel = new JLabel("Fail chance");
+            failLabel.setHorizontalAlignment(SwingConstants.RIGHT);
+            failLabel.setToolTipText("Probability (0-1) of failure in each " + 
+                    "time slice");
+            
+            int procs = agent.getComputation().getProcessors();
+            slider = new JSlider(SwingConstants.HORIZONTAL, 0, 20, procs);
             slider.setMajorTickSpacing(5);
             slider.setMinorTickSpacing(1);
             slider.setPaintTicks(true);
             //slider.setPaintLabels(true);
             slider.setSnapToTicks(true);
-            slider.setBorder(BorderFactory.createLineBorder(Color.GREEN));
+            //slider.setBorder(BorderFactory.createLineBorder(Color.GREEN));
             
             slider.addChangeListener(new ChangeListener() {
                 @Override
@@ -93,27 +107,46 @@ public class ProductionControlPanel extends JPanel {
                     }
                 }
             });
-            c.gridx = c.gridy = 0;
-            c.weightx = 0.0;
-            c.insets = new Insets(0, 0, 0, 0);
+            
+            double chance = computation.getFailChance();
+            failSpinner = new JSpinner(
+                    new SpinnerNumberModel(chance, 0, 1, 0.01));
+            failSpinner.addChangeListener(new ChangeListener() {
+                @Override
+                public void stateChanged(ChangeEvent e) {
+                    double value = (double) failSpinner.getValue();
+                    computation.setFailChance(value);
+                }
+            });
+        }
+
+        private void fillLayout() {
+            GridBagConstraints c = new GridBagConstraints();
+            c.insets = new Insets(15, 10, 5, 2);
             c.fill = GridBagConstraints.HORIZONTAL;
+            c.anchor = GridBagConstraints.LINE_END;
             c.ipadx = c.ipady = 0;
             c.ipadx = 10;
             add(processorsLabel, c);
             c.gridx = 1;
             c.weightx = 0.8;
-            c.insets = new Insets(0, 0, 0, 0);
+            c.insets = new Insets(15, 2, 5, 5);
             c.ipadx = c.ipady = 0;
             add(slider, c);
-            
-            JLabel failLabel = new JLabel("Fail chance");
-            failLabel.setHorizontalAlignment(SwingConstants.RIGHT);
-            failLabel.setToolTipText("% chance of failure in each time slice");
-            failLabel.setBorder(BorderFactory.createLineBorder(Color.GREEN));
+
             c.gridy = 1;
             c.gridx = 0;
             c.weightx = 0.0;
+            c.insets.top = 5;
             add(failLabel, c);
+            c.gridx = 1;
+            add(failSpinner, c);
+            
+            c = new GridBagConstraints();
+            c.gridy = 8;
+            c.fill = GridBagConstraints.VERTICAL;
+            c.weighty = 1.0;
+            add(Box.createVerticalGlue(), c);
         }
         
     }

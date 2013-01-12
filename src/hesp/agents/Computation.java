@@ -89,6 +89,22 @@ public class Computation extends TickerBehaviour {
     }
     
     /**
+     * @return probability that the job will fail during one time slice 
+     */
+    public double getFailChance() {
+        return failPerSlice;
+    }
+    
+    /**
+     * Sets the chance that job will fail in some fixed time slice
+     * 
+     * @param chance probability of failure
+     */
+    public void setFailChance(double chance) {
+        this.failPerSlice = chance;
+    }
+    
+    /**
      * @return number of currently running jobs
      */
     public int workload() {

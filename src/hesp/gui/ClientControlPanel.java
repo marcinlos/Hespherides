@@ -163,6 +163,7 @@ class ClientControlPanel extends JPanel {
                 jobParamPanel.switchToCard(type);
             }
         });
+        
         timeBox = new JComboBox<>(new String[] { "Poisson", "Fixed" });
         timeBox.addActionListener(new ActionListener() {
             @Override
@@ -339,7 +340,7 @@ class ClientControlPanel extends JPanel {
             JLabel lambdaLabel = new JLabel("Lambda");
             lambdaLabel.setToolTipText("Intensity parameter - amount of "
                     + "requests per second (unit: 1/s)");
-            model = new SpinnerNumberModel(0.2, 0.1, 1000.0, 0.1);
+            model = new SpinnerNumberModel(1.0, 0.1, 1000.0, 0.1);
             JSpinner spinner = new JSpinner(model);
 
             GridBagConstraints c = new GridBagConstraints();

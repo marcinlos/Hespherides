@@ -138,18 +138,13 @@ public class MetagridManager extends Agent {
                 
                 try {
                     for (LookAndFeelInfo info: UIManager.getInstalledLookAndFeels()) {
-                        System.out.println(info.getName() + "(" + info.getClassName() + ")");
                         if (info.getName().equals("Windows")) {
-                            System.out.println("FTW!");
                             UIManager.setLookAndFeel(info.getClassName());
                         }
-                        
                     }
-                    //UIManager.setLookAndFeel("Windows");
                 } catch (ClassNotFoundException | InstantiationException
                         | IllegalAccessException | UnsupportedLookAndFeelException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
+                    e.printStackTrace(System.err);
                 }
                 
                 window = new ManagerWindow(MetagridManager.this);

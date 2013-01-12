@@ -2,23 +2,11 @@ package hesp.gui;
 
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.GradientPaint;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.LinearGradientPaint;
-import java.awt.Paint;
-import java.awt.PaintContext;
-import java.awt.Rectangle;
-import java.awt.RenderingHints;
-import java.awt.geom.AffineTransform;
-import java.awt.geom.Point2D;
-import java.awt.geom.Rectangle2D;
-import java.awt.image.ColorModel;
 
-import javax.swing.BorderFactory;
 import javax.swing.JPanel;
-import javax.swing.JProgressBar;
-import javax.swing.border.BevelBorder;
 
 /**
  * @author marcinlos
@@ -47,10 +35,7 @@ public class WorkloadBar extends JPanel {
         int w = getWidth() - 2;
         int h = getHeight() - 2;
         
-        GradientPaint gradient = new GradientPaint(0, 0, Color.GREEN, 
-                w, 0, Color.RED);
-        
-        int rw = w * value / maximum;
+        int rw = maximum > 0 ? w * value / maximum : 0;
 
         float[] points = {0f, 0.5f, 1f};
         Color[] colors = {Color.GREEN, Color.YELLOW, Color.RED};

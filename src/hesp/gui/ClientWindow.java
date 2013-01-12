@@ -27,7 +27,7 @@ public class ClientWindow extends JFrame {
     private void setupUI() {
         setLayout(new BorderLayout());
         setMinimumSize(new Dimension(300, 200));
-        setPreferredSize(new Dimension(400, 400));
+        setPreferredSize(new Dimension(400, 450));
 
         logPanel = new LogPanel();
 
@@ -38,7 +38,7 @@ public class ClientWindow extends JFrame {
 
         add(split, BorderLayout.CENTER);
 
-        split.setResizeWeight(0.7);
+        split.setResizeWeight(0.0);
         split.setDividerSize(5);
     }
 

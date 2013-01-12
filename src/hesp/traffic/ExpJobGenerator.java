@@ -15,6 +15,12 @@ public class ExpJobGenerator implements JobGenerator {
     private Random random = new Random();
     private int avgTime;
     
+    /**
+     * Creates exponential distribution of job costs with average cost
+     * {@code avgTime}
+     * 
+     * @param avgTime Average job time
+     */
     public ExpJobGenerator(int avgTime) {
         this.avgTime = avgTime;
     }

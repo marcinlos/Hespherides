@@ -2,15 +2,24 @@ package hesp.gui;
 
 import hesp.agents.ClientAgent;
 import hesp.protocol.Job;
-import hesp.protocol.JobParameters;
+import hesp.traffic.ExpJobGenerator;
+import hesp.traffic.FixedDelay;
+import hesp.traffic.JobGenerator;
+import hesp.traffic.JobGeneratorProvider;
+import hesp.traffic.PoissonProces;
+import hesp.traffic.TimeDistribution;
+import hesp.traffic.TimeDistributionProvider;
+import hesp.traffic.UniformJobGenerator;
 import jade.core.AID;
 
+import java.awt.CardLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.util.Random;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.swing.Box;
 import javax.swing.JButton;
@@ -20,91 +29,72 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
+import javax.swing.border.Border;
+import javax.swing.border.TitledBorder;
 
 class ClientControlPanel extends JPanel {
-    
+
     private ClientAgent client;
-    
-    private Random random = new Random();
+
     private GridBagLayout layout = new GridBagLayout();
 
     // General widgets
     private JLabel agentLabel;
+    private JLabel jobLabel;
+    private JLabel timeLabel;
     private JLabel countLabel;
-    
+
     private JComboBox<String> agentBox;
     private JSpinner countSpinner;
     private JCheckBox indefinitelyCheckbox;
     private JButton startButton;
-    
+
     private JComboBox<String> jobBox;
     private JComboBox<String> timeBox;
 
-    private JPanel jobParamPanel;
-    private JPanel timeParameterPanel;
-
-    // Uniform distribution widgets
-    private JLabel minCostLabel;
-    private JLabel maxCostLabel;
-    private JLabel timeLabel;
-    
-    private RangeSpinnerModel rangeModel;
-    private JSpinner lowerSpinner;
-    private JSpinner upperSpinner;
-    private JSpinner timeSpinner;
-    
-    // Poisson distribution
-    private JLabel densityLabel;
-    
-    private JSpinner densitySpinner;
-    
+    private JobParamsPanel jobParamPanel;
+    private TimeParamsPanel timeParameterPanel;
 
     public ClientControlPanel(ClientAgent client) {
         this.client = client;
         setLayout(layout);
         createWidgets();
         fillLayout();
-        
-        /*JobRequestTask task = new JobRequestTask(0, new ExpJobGenerator(100), new PoissonProces(5./1000), new JobRequestListener() {
-            
-            @Override
-            public void requestIssued(Job job) {
-                client.postJob(new AID("Res", AID.ISLOCALNAME), job);
-            }
-        });
-        task.start();*/
     }
-
 
     private void fillLayout() {
         GridBagConstraints c = new GridBagConstraints();
         c.insets = new Insets(25, 10, 10, 5);
         c.anchor = GridBagConstraints.BASELINE_TRAILING;
         add(agentLabel, c);
-        
+
         c.insets.top = 5;
         c.insets.bottom = 5;
-        //c.ipady = 5;
         c.gridy = 1;
-        add(minCostLabel, c);
-        c.gridy = 2;
-        add(maxCostLabel, c);
+        add(jobLabel, c);
+
         c.gridy = 3;
-        add(countLabel, c);
-        c.gridy = 5;
         add(timeLabel, c);
         
-        // TODO: 
-        /*
-         * Złota myśl sylwestra:
-         * Wiele lepiej już nie będzie,
-         * coś się stanie i coś będzie
-         */
+        c.gridy = 6;
+        add(countLabel, c);
+
+        c.gridwidth = 4;
+        c.gridx = 0;
+        c.gridy = 2;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.weightx = 0.7;
+
+        add(jobParamPanel, c);
+
+        c.gridy = 4;
+        add(timeParameterPanel, c);
 
         c.insets.right = 10;
         c.insets.left = 5;
         c.gridx = 1;
         c.gridy = 0;
+        c.gridwidth = 3;
         c.ipadx = 40;
         c.weightx = 0.3;
         c.fill = GridBagConstraints.HORIZONTAL;
@@ -115,88 +105,339 @@ class ClientControlPanel extends JPanel {
         c.insets.bottom = 0;
         c.ipady = 0;
         c.gridy = 1;
-        add(lowerSpinner, c);
-        c.gridy = 2;
-        add(upperSpinner, c);
+        add(jobBox, c);
         c.gridy = 3;
-        add(countSpinner, c);
-        c.gridy = 4;
-        add(indefinitelyCheckbox, c);
-        c.gridy = 5;
-        add(timeSpinner, c);
+        add(timeBox, c);
         
+        c.gridy = 6;
+        c.gridx = 1;
+        add(countSpinner, c);
+        c.gridy = 7;
+        c.insets.right = 0;
+        c.ipadx = 5;
+        c.fill = GridBagConstraints.NONE;
+        c.anchor = GridBagConstraints.BASELINE_TRAILING;
+        add(indefinitelyCheckbox, c);
+
         c = new GridBagConstraints();
-        c.gridx = 2;
+        c.gridx = 4;
         c.gridy = 1;
         c.fill = GridBagConstraints.BOTH;
         c.gridheight = 3;
-        c.weightx = 0.7;
+        c.weightx = 1.2;
         c.insets = new Insets(0, 0, 0, 10);
         add(startButton, c);
 
         c = new GridBagConstraints();
-        c.gridy = 6;
+        c.gridy = 8;
         c.fill = GridBagConstraints.VERTICAL;
         c.weighty = 1.0;
         add(Box.createVerticalGlue(), c);
     }
 
-
     private void createWidgets() {
         agentLabel = new JLabel("Agent");
-        minCostLabel = new JLabel("Min cost");
-        maxCostLabel = new JLabel("Max cost");
+        jobLabel = new JLabel("Job generator");
         countLabel = new JLabel("Count");
-        timeLabel = new JLabel("Delay (ms)");
+        timeLabel = new JLabel("Time distribution");
 
         agentLabel.setToolTipText("Agent to which job requests shall "
                 + "be issued");
-        minCostLabel.setToolTipText("Minimal cost of requested job");
-        maxCostLabel.setToolTipText("Maximal cost of requested job");
-        countLabel.setToolTipText("Amount of job requests to issue");
-        timeLabel.setToolTipText("Amount of milliseconds between " + 
-                "consecutive requests");
-        
+
+        jobParamPanel = new JobParamsPanel();
+        timeParameterPanel = new TimeParamsPanel();
+
         // Create the widgets
-        agentBox = new JComboBox<>(new String[] { "Res", "Other" });
+        agentBox = new JComboBox<>(new String[] { "Res", "Other..." });
         agentBox.setEditable(true);
-        rangeModel = new RangeSpinnerModel(1, Integer.MAX_VALUE, 80, 120);
-        lowerSpinner = new JSpinner(rangeModel.getLowerModel());
-        upperSpinner = new JSpinner(rangeModel.getUpperModel());
-        countSpinner = new JSpinner(new SpinnerNumberModel(5, 1, 1000, 1));
-        
+
         indefinitelyCheckbox = new JCheckBox("Indefinitely");
-        indefinitelyCheckbox.setToolTipText("If checked, requests are " + 
-                "sent indefinitely");
+        indefinitelyCheckbox.setToolTipText("If checked, requests are "
+                + "sent indefinitely");
+
+        jobBox = new JComboBox<>(new String[] { "Exponential", "Uniform" });
+        jobBox.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent arg0) {
+                String type = (String) jobBox.getSelectedItem();
+                jobParamPanel.switchToCard(type);
+            }
+        });
+        timeBox = new JComboBox<>(new String[] { "Poisson", "Fixed" });
+        timeBox.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String type = (String) timeBox.getSelectedItem();
+                timeParameterPanel.switchToCard(type);
+            }
+        });
         
+        countSpinner = new JSpinner(new SpinnerNumberModel(1, 1, 
+                Integer.MAX_VALUE, 1));
+
         startButton = new JButton("Send");
         startButton.addActionListener(new ActionListener() {
-            @Override 
+            @Override
             public void actionPerformed(ActionEvent e) {
                 issueRequests();
             }
         });
-        
-        timeSpinner = new JSpinner(new SpinnerNumberModel(100, 0, 
-                Integer.MAX_VALUE, 1));
     }
 
-    
     private void issueRequests() {
-        // Collect the data from widgets
-        int randMin = rangeModel.getLowerValue();
-        int randMax = rangeModel.getUpperValue();
+        JobGenerator jobGen = jobParamPanel.getJobGenerator();
+        TimeDistribution timeGen = timeParameterPanel.getTimeDistribution();
         int count = (int) countSpinner.getValue();
-        
-        String name = (String) agentBox.getSelectedItem();
-        AID agent = new AID(name , AID.ISLOCALNAME);
-
-        for (int i = 0; i < count; ++ i) {
-            long id = System.currentTimeMillis() ^ hashCode();
-            id ^= random.nextLong();
-            int cputime = randMin + random.nextInt(randMax - randMin + 1);
-            client.postJob(agent, new Job(id, new JobParameters(cputime)));
+        if (indefinitelyCheckbox.isSelected()) {
+            count = JobRequestTask.INDEFINITELY;
         }
+
+        String name = (String) agentBox.getSelectedItem();
+        final AID agent = new AID(name, AID.ISLOCALNAME);
+
+        JobRequestTask task = new JobRequestTask(count, jobGen, timeGen, 
+            new JobRequestListener() {
+                @Override public void requestIssued(Job job) {
+                    client.postJob(agent, job);
+                }
+            });
+        task.start();
+    }
+
+    /*
+     * GUI for job parameters panel
+     */
+
+    private class ExponentialParamsPanel extends JPanel implements
+            JobGeneratorProvider {
+
+        private GridBagLayout layout = new GridBagLayout();
+        private SpinnerNumberModel model;
+
+        public ExponentialParamsPanel() {
+            setLayout(layout);
+            JLabel avgLabel = new JLabel("Average");
+            model = new SpinnerNumberModel(100, 1, Integer.MAX_VALUE, 1);
+            JSpinner spinner = new JSpinner(model);
+
+            GridBagConstraints c = new GridBagConstraints();
+            c.insets = new Insets(5, 10, 10, 5);
+            c.anchor = GridBagConstraints.BASELINE_TRAILING;
+            c.gridy = 0;
+            add(avgLabel, c);
+            c.gridx = 1;
+            c.gridy = 0;
+            c.weightx = 0.3;
+            c.fill = GridBagConstraints.HORIZONTAL;
+            c.anchor = GridBagConstraints.BASELINE_TRAILING;
+            c.insets.top = 0;
+            c.insets.bottom = 0;
+            c.ipady = 0;
+            add(spinner, c);
+        }
+
+        @Override
+        public JobGenerator getGenerator() {
+            int value = (int) model.getValue();
+            return new ExpJobGenerator(value);
+        }
+    }
+
+    private class UniformParamsPanel extends JPanel implements
+            JobGeneratorProvider {
+
+        private GridBagLayout layout = new GridBagLayout();
+        private RangeSpinnerModel model;
+
+        public UniformParamsPanel() {
+            setLayout(layout);
+
+            JLabel uniformMinLabel = new JLabel("Min");
+            JLabel uniformMaxLabel = new JLabel("Max");
+            uniformMinLabel.setToolTipText("Minimal cost of requested job");
+            uniformMaxLabel.setToolTipText("Maximal cost of requested job");
+            model = new RangeSpinnerModel(1, Integer.MAX_VALUE, 80, 120);
+            JSpinner minSpinner = new JSpinner(model.getLowerModel());
+            JSpinner maxSpinner = new JSpinner(model.getUpperModel());
+
+            GridBagConstraints c = new GridBagConstraints();
+            c.insets = new Insets(5, 10, 10, 5);
+            c.anchor = GridBagConstraints.BASELINE_TRAILING;
+            add(uniformMinLabel, c);
+            c.gridy = 1;
+            add(uniformMaxLabel, c);
+
+            c.gridx = 1;
+            c.gridy = 0;
+            c.weightx = 0.3;
+            c.fill = GridBagConstraints.HORIZONTAL;
+            c.anchor = GridBagConstraints.BASELINE_TRAILING;
+            c.insets.top = 0;
+            c.insets.bottom = 0;
+            c.ipady = 0;
+            add(minSpinner, c);
+            c.gridy = 1;
+            add(maxSpinner, c);
+        }
+
+        @Override
+        public JobGenerator getGenerator() {
+            int min = model.getLowerValue();
+            int max = model.getUpperValue();
+            return new UniformJobGenerator(min, max);
+        }
+    }
+
+    private class JobParamsPanel extends JPanel {
+
+        public static final String EXPONENTIAL = "Exponential";
+        public static final String UNIFORM = "Uniform";
+        private CardLayout layout;
+
+        private ExponentialParamsPanel expCard = new ExponentialParamsPanel();
+        private UniformParamsPanel uniformCard = new UniformParamsPanel();
+
+        private Map<String, JobGeneratorProvider> providers = new HashMap<>();
+        private JobGeneratorProvider current;
+
+        public JobParamsPanel() {
+            layout = new CardLayout();
+            setLayout(layout);
+            Border expBorder = new TitledBorder("Job parameters");
+            setBorder(expBorder);
+            add(expCard, EXPONENTIAL);
+            add(uniformCard, UNIFORM);
+
+            current = expCard;
+            providers.put(EXPONENTIAL, expCard);
+            providers.put(UNIFORM, uniformCard);
+        }
+
+        public void switchToCard(String name) {
+            layout.show(this, name);
+            current = providers.get(name);
+        }
+
+        public JobGenerator getJobGenerator() {
+            return current.getGenerator();
+        }
+
+    }
+
+    /*
+     * GUI for time distribution parameters panel
+     */
+
+    private class PoissonParamsPanel extends JPanel implements
+            TimeDistributionProvider {
+
+        private GridBagLayout layout = new GridBagLayout();
+        private SpinnerNumberModel model;
+
+        public PoissonParamsPanel() {
+            setLayout(layout);
+            JLabel lambdaLabel = new JLabel("Lambda");
+            lambdaLabel.setToolTipText("Intensity parameter - amount of "
+                    + "requests per second (unit: 1/s)");
+            model = new SpinnerNumberModel(0.2, 0.1, 1000.0, 0.1);
+            JSpinner spinner = new JSpinner(model);
+
+            GridBagConstraints c = new GridBagConstraints();
+            c.insets = new Insets(5, 10, 10, 5);
+            c.anchor = GridBagConstraints.BASELINE_TRAILING;
+            c.gridy = 0;
+            add(lambdaLabel, c);
+            c.gridx = 1;
+            c.gridy = 0;
+            c.weightx = 0.3;
+            c.fill = GridBagConstraints.HORIZONTAL;
+            c.anchor = GridBagConstraints.BASELINE_TRAILING;
+            c.insets.top = 0;
+            c.insets.bottom = 0;
+            c.ipady = 0;
+            add(spinner, c);
+        }
+
+        @Override
+        public TimeDistribution getDistribution() {
+            double lambda = (double) model.getValue();
+            return new PoissonProces(lambda);
+        }
+
+    }
+
+    private class FixedParamsPanel extends JPanel implements
+            TimeDistributionProvider {
+
+        private GridBagLayout layout = new GridBagLayout();
+        private SpinnerNumberModel model;
+
+        public FixedParamsPanel() {
+            setLayout(layout);
+            JLabel gapLabel = new JLabel("Gap");
+            gapLabel.setToolTipText("Time (in seconds) between consecutive "
+                    + "requests");
+            model = new SpinnerNumberModel(0.2, 0.1, 1000.0, 0.1);
+            JSpinner spinner = new JSpinner(model);
+
+            GridBagConstraints c = new GridBagConstraints();
+            c.insets = new Insets(5, 10, 10, 5);
+            c.anchor = GridBagConstraints.BASELINE_TRAILING;
+            c.gridy = 0;
+            add(gapLabel, c);
+            c.gridx = 1;
+            c.gridy = 0;
+            c.weightx = 0.3;
+            c.fill = GridBagConstraints.HORIZONTAL;
+            c.anchor = GridBagConstraints.BASELINE_TRAILING;
+            c.insets.top = 0;
+            c.insets.bottom = 0;
+            c.ipady = 0;
+            add(spinner, c);
+        }
+
+        @Override
+        public TimeDistribution getDistribution() {
+            double delay = (double) model.getValue();
+            return new FixedDelay(delay);
+        }
+
+    }
+
+    private class TimeParamsPanel extends JPanel {
+
+        public static final String POISSON = "Poisson";
+        public static final String FIXED = "Fixed";
+        private CardLayout layout;
+
+        private PoissonParamsPanel poissonCard = new PoissonParamsPanel();
+        private FixedParamsPanel fixedCard = new FixedParamsPanel();
+
+        private Map<String, TimeDistributionProvider> providers = new HashMap<>();
+        private TimeDistributionProvider current;
+
+        public TimeParamsPanel() {
+            layout = new CardLayout();
+            setLayout(layout);
+            Border expBorder = new TitledBorder("Time distribution parameters");
+            setBorder(expBorder);
+            add(poissonCard, POISSON);
+            add(fixedCard, FIXED);
+
+            current = poissonCard;
+            providers.put(POISSON, poissonCard);
+            providers.put(FIXED, fixedCard);
+        }
+
+        public void switchToCard(String name) {
+            layout.show(this, name);
+            current = providers.get(name);
+        }
+
+        public TimeDistribution getTimeDistribution() {
+            return current.getDistribution();
+        }
+
     }
 
 }

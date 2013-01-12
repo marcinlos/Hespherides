@@ -7,6 +7,6 @@
 <listEntry value="1"/>
 </listAttribute>
 <stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="jade.Boot"/>
-<stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="-local-host 127.0.0.1 master:hesp.agents.MetagridManager"/>
+<stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="-local-host 127.0.0.1 master:hesp.agents.MetagridManager -gui"/>
 <stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="Hespherides"/>
 </launchConfiguration>

@@ -2,7 +2,7 @@ package hesp.traffic;
 
 /**
  * Time distribution with fixed time difference between consecutive event
- * occurrences,
+ * occurrences.
  * 
  * @author marcinlos
  */

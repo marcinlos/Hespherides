@@ -38,7 +38,7 @@ public class JobRequestTask {
         this.time = time;
         this.listener = listener;
         double delay = time.nextDelay();
-        this.timer = new Timer((int) delay, action);
+        this.timer = new Timer((int) (1000 * delay), action);
     }
     
     /**
@@ -68,7 +68,8 @@ public class JobRequestTask {
                     timer.stop();
                 }
             }
-            int delay = (int) time.nextDelay();
+            // sec -> milisec
+            int delay = (int) (1000 * time.nextDelay());
             timer.setDelay(delay);
         }
     };

@@ -26,7 +26,16 @@ import java.util.Random;
 import javax.swing.SwingUtilities;
 import javax.swing.table.AbstractTableModel;
 
+/**
+ * Central banking system, to facilitate paying for transactions.
+ * No authentication other than checking sender's login.
+ * 
+ * @author marcinlos
+ */
 public class Bank extends HespAgent {
+    
+    public static final String SERVICE_TYPE = "bank";
+    public static final String SERVICE_NAME = "grid-bank";
 
     private class Account {
         private String id;
@@ -65,6 +74,9 @@ public class Bank extends HespAgent {
         }
     }
     
+    /**
+     * @return unique (with high probability) account identifier
+     */
     private String genAccId() {
         return String.format("%x-%x", System.nanoTime(), rand.nextLong());
     }
@@ -77,8 +89,8 @@ public class Bank extends HespAgent {
         DFAgentDescription desc = new DFAgentDescription();
         desc.setName(getAID());
         ServiceDescription sd = new ServiceDescription();
-        sd.setType("bank");
-        sd.setName("grid-bank");
+        sd.setType(SERVICE_TYPE);
+        sd.setName(SERVICE_NAME);
         desc.addServices(sd);
         try {
             DFService.register(this, desc);
@@ -128,21 +140,23 @@ public class Bank extends HespAgent {
     public void setup() {
         try {
             super.setup();
+            setupGUI();
             registerService();
-            
-            SwingUtilities.invokeLater(new Runnable() {
-                @Override
-                public void run() {
-                    window = new BankWindow(getLocalName(), model);
-                    window.setLocationRelativeTo(null);
-                    window.pack();
-                    window.setVisible(true);
-                }
-            });
-            
         } catch (Exception e) {
             e.printStackTrace(System.err);
         }
+    }
+    
+    private void setupGUI() {
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                window = new BankWindow(getLocalName(), model);
+                window.setLocationRelativeTo(null);
+                window.pack();
+                window.setVisible(true);
+            }
+        });
     }
 
     private class Transaction extends FSMBehaviour {

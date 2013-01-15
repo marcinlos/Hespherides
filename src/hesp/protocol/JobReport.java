@@ -1,9 +1,8 @@
 package hesp.protocol;
 
-import jade.content.Concept;
 import jade.util.leap.Serializable;
 
-public class JobReport implements Concept, Serializable {
+public class JobReport implements Serializable {
     
     private long jobId;
     private boolean status;

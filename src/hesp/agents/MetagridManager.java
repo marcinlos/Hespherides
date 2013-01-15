@@ -142,8 +142,10 @@ public class MetagridManager extends Agent {
                             UIManager.setLookAndFeel(info.getClassName());
                         }
                     }
-                } catch (ClassNotFoundException | InstantiationException
-                        | IllegalAccessException | UnsupportedLookAndFeelException e) {
+                } catch (ClassNotFoundException 
+                        | InstantiationException
+                        | IllegalAccessException 
+                        | UnsupportedLookAndFeelException e) {
                     e.printStackTrace(System.err);
                 }
                 
@@ -160,7 +162,7 @@ public class MetagridManager extends Agent {
     private void setupAgents() {
         try {
             setupJade();
-            createAgent(Bank.class, "bank");
+            createAgent(Bank.class, "Bank");
             createAgent(ProductionAgent.class, "Res");
             createAgent(SocialAgent.class, "Soc");
             createAgent(ClientAgent.class, "Client");

@@ -1,16 +1,14 @@
 package hesp.agents;
 
 import hesp.gui.ClientWindow;
-import hesp.protocol.AccountCreation;
-import hesp.protocol.AccountResponse;
+import hesp.gui.Synchronous;
 import hesp.protocol.Action;
 import hesp.protocol.Job;
-import hesp.protocol.JobParameters;
 import hesp.protocol.JobReport;
 import hesp.protocol.JobRequestResponse;
 import hesp.protocol.Message;
-import hesp.util.LogSink;
 import hesp.util.LogItem.Level;
+import hesp.util.LogSink;
 import jade.core.AID;
 import jade.core.behaviours.Behaviour;
 import jade.core.behaviours.FSMBehaviour;
@@ -43,6 +41,7 @@ public class ClientAgent extends HespAgent {
     
     private ClientWindow window;   
     private LogSink logger;
+    private ServiceLocator locator;
     
     /**
      * Client currently does not receive messages outside the scope of his
@@ -240,24 +239,29 @@ public class ClientAgent extends HespAgent {
     }
     
     /**
-     * Queries yellow pages service for banking agent.
+     * Sets up process of continuous querying DF about required services
+     * using {@link ServiceLocator}
      */
     private void findServices() {
-        DFAgentDescription pattern = new DFAgentDescription();
-        ServiceDescription sd = new ServiceDescription();
-        sd.setName("grid-bank");
-        pattern.addServices(sd);
-        DFAgentDescription[] banks = null;
-        try {
-            banks = DFService.search(this, pattern);
-            bank = banks[0].getName();
-        } catch (FIPAException e) {
-            e.printStackTrace();
-        }
+        locator = new ServiceLocator(this, "grid-bank"){//Bank.SERVICE_NAME) {
+            @Override
+            protected int serviceFound(DFAgentDescription[] ids) {
+                bank = ids[0].getName();
+                logger.success("Bank service found");
+                return ServiceLocator.CONTINUE;
+            }
+            
+            @Override protected int timeout() {
+                //System.out.println("Fuck");
+                logger.error("Unable to locate Bank (timeout)");
+                return ServiceLocator.STOP;
+            }
+        };
+        addBehaviour(locator);
     }
     
     private void setupGUI() {
-        SwingUtilities.invokeLater(new Runnable() {
+        Synchronous.invoke(new Runnable() {
             @Override
             public void run() {
                 window = new ClientWindow(ClientAgent.this);
@@ -272,75 +276,14 @@ public class ClientAgent extends HespAgent {
     @Override
     public void setup() {
         super.setup();
+        setupGUI();
         // Search for 'environment' services
         findServices();
-        setupGUI();
     }
     
-
-    /**
-     * Communication with GUI is currently text-based (json). This method
-     * interprets such json command.
-     */
-    public void executeCommand(String text) {
-        try {
-            JsonParser parser = new JsonParser();
-            JsonObject o = (JsonObject) parser.parse(text);
-            interpretJson(o);
-        } catch (JsonSyntaxException e) {
-            System.err.println("Syntax error");
-            e.printStackTrace(System.err);
-        }
-    }
-    
-    /**
-     * Actual interpreting json command.
-     * 
-     * @param o Parsed json object
-     * @sa executeCommand
-     */
-    private void interpretJson(JsonObject o) {
-        long id = System.currentTimeMillis() ^ hashCode();
-        if (o.has("agent")) {
-            String agent = o.getAsJsonPrimitive("agent").getAsString();
-            int n = 1;
-            if (o.has("n")) n = o.get("n").getAsInt(); 
-            int time;
-            for (int i = 0; i < n; ++ i) {
-                if (o.has("time")) {
-                    time = o.getAsJsonPrimitive("time").getAsInt();
-                } else {
-                    time = 350 + rand.nextInt(50);
-                }
-                postJob(new AID(agent, AID.ISLOCALNAME), new Job(id + i, new JobParameters(time)));
-            }
-        } else {
-            final ACLMessage message = emptyInitMessage(ACLMessage.REQUEST);
-            message.addReceiver(bank);
-            sendMessage(message, Action.CREATE_ACCOUNT, 
-                    new AccountCreation(getLocalName()));
-            addBehaviour(new OneShotBehaviour() {
-                
-                @Override
-                public void action() {
-                    MessageTemplate template = MessageTemplate
-                            .MatchConversationId(message.getConversationId());
-                    ACLMessage resp = receive(template);
-                    if (resp != null) {
-                        Message<AccountResponse> m = decode(resp, 
-                                AccountResponse.class);
-                        AccountResponse response = m.getValue();
-                        System.out.println("Client: " + response.success);
-                    } else {
-                        block();
-                    }
-                }
-            });
-        }
-    }
-
     @Override
     public void takeDown() {
+        removeBehaviour(locator);
     }
 
 }

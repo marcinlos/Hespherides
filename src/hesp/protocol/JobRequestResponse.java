@@ -1,12 +1,15 @@
 package hesp.protocol;
 
+/**
+ * Response for job request sent to production agent
+ * 
+ * @author marcinlos
+ */
 public class JobRequestResponse {
 
     private long jobId;
     private boolean accepted;
     private String details;
-    
-    
     
     public JobRequestResponse(long jobId, boolean accepted) {
         this.jobId = jobId;

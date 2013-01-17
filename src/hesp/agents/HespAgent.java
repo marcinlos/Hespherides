@@ -47,7 +47,10 @@ public abstract class HespAgent extends Agent {
             if (message != null) {
                 boolean understood = dispatchMessage(message);
                 if (understood) {
-                    
+                    // Send NOT UNDERSTOOD response
+                    ACLMessage response = message.createReply();
+                    response.setPerformative(ACLMessage.NOT_UNDERSTOOD);
+                    send(response);
                 }
             } else {
                 block();

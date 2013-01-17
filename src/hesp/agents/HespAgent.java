@@ -45,7 +45,10 @@ public abstract class HespAgent extends Agent {
         public void action() {
             ACLMessage message = receive(template);
             if (message != null) {
-                dispatchMessage(message);
+                boolean understood = dispatchMessage(message);
+                if (understood) {
+                    
+                }
             } else {
                 block();
             }
@@ -53,7 +56,7 @@ public abstract class HespAgent extends Agent {
         
     }
     
-    protected abstract void dispatchMessage(ACLMessage message);
+    protected abstract boolean dispatchMessage(ACLMessage message);
     
     
     protected ACLMessage emptyMessage(int performative) {

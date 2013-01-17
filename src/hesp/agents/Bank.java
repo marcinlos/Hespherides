@@ -64,13 +64,15 @@ public class Bank extends HespAgent {
     private BankWindow window;
 
     @Override
-    protected void dispatchMessage(ACLMessage message) {
+    protected boolean dispatchMessage(ACLMessage message) {
         Message<?> content = decode(message, Object.class);
         Action action = content.getAction();
         switch (action.category()) {
         case BANK:
             addBehaviour(new Transaction(message));
-            break;
+            return true;
+        default:
+            return false;
         }
     }
     

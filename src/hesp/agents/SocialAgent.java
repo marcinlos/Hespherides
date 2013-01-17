@@ -22,16 +22,18 @@ public class SocialAgent extends HespAgent {
     
     
     @Override
-    protected void dispatchMessage(ACLMessage message) {
+    protected boolean dispatchMessage(ACLMessage message) {
         Message<?> content = decode(message, Object.class);
         Action action = content.getAction();
         switch (action.category()) {
         case CONTROL: 
             //addBehaviour(new ControlProcessor(message));
-            break;
+            return true;
         case JOB:
             addBehaviour(new JobSubmissionProcessor(message));
-            break;
+            return true;
+        default:
+            return false;
         }
     }
 

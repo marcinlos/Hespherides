@@ -2,6 +2,10 @@ package hesp.agents;
 
 import hesp.gui.ProductionWindow;
 import hesp.gui.Synchronous;
+import hesp.policy.Result;
+import hesp.policy.TokenBasedUsage;
+import hesp.policy.UnconditionalRefusal;
+import hesp.policy.UsagePolicy;
 import hesp.protocol.Action;
 import hesp.protocol.Job;
 import hesp.protocol.JobParameters;
@@ -11,6 +15,7 @@ import hesp.protocol.Message;
 import hesp.util.LogSink;
 import jade.core.AID;
 import jade.core.behaviours.Behaviour;
+import jade.core.behaviours.DataStore;
 import jade.core.behaviours.FSMBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
 import jade.core.behaviours.SequentialBehaviour;
@@ -51,28 +56,38 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
     private class PolicyManager {
         
         private Map<AID, UsagePolicy> policies = new HashMap<>();
+        private static final String message = "You are not authorized to use me";
+        private UsagePolicy defaultPolicy = new UnconditionalRefusal(message);
         
-        public boolean canUse(AID agent, Job job) {
+        public UsagePolicy getPolicy(AID agent, Job job) {
             UsagePolicy policy = policies.get(agent);
-            if (policy != null) {
-                return policy.canUse(job);
-            } else {
-                return false;
+            if (policy == null) {
+                policy = defaultPolicy;
             }
+            return policy;
         }
         
-        public boolean use(AID agent, Job job) {
-            UsagePolicy policy = policies.get(agent);
-            if (policy != null) {
-                return policy.use(job);
-            } else {
-                return false;
-            }
-        }
+//        public Result canUse(AID agent, Job job) {
+//            UsagePolicy policy = policies.get(agent);
+//            if (policy != null) {
+//                return policy.canUse(job);
+//            } else {
+//                return defaultPolicy.canUse(job);
+//            }
+//        }
+//        
+//        public Result use(AID agent, Job job) {
+//            UsagePolicy policy = policies.get(agent);
+//            if (policy != null) {
+//                return policy.use(job);
+//            } else {
+//                return defaultPolicy.use(job);
+//            }
+//        }
         
     }
     
-    private PolicyManager policy = new PolicyManager();
+    private PolicyManager policyManager = new PolicyManager();
     
     
     public Computation getComputation() {
@@ -94,16 +109,18 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
     
     
     @Override
-    protected void dispatchMessage(ACLMessage message) {
+    protected boolean dispatchMessage(ACLMessage message) {
         Message<?> content = decode(message, Object.class);
         Action action = content.getAction();
         switch (action.category()) {
         case CONTROL: 
             addBehaviour(new ControlProcessor(message));
-            break;
+            return true;
         case JOB:
             addBehaviour(new JobSubmissionProcessor(message));
-            break;
+            return true;
+        default:
+            return false;
         }
     }
     
@@ -114,6 +131,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
         //private MessageTemplate template;
         //private String cid;
         private Job job;
+        private AID sender;
         private JobReport report;
         
         private static final String ACCEPTANCE = "Acceptance";
@@ -130,6 +148,15 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
         private static final int OK = 0;
         private static final int FAIL = 1;
         
+        /** 
+         * Key to data store associated with string describing the reason
+         * of refusal.
+         */
+        private static final int KEY_FAIL_REASON = 1234;
+        private static final int KEY_POLICY = 4321;
+        
+        private DataStore DS = getDataStore();
+
         public JobSubmissionProcessor(final ACLMessage firstMessage) {
             //cid = genCID();
             /*this.template = MessageTemplate.and(
@@ -147,13 +174,19 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
             registerTransition(EXEC_FAILURE, BILLING, OK);
             registerTransition(EXEC_SUCCESS, BILLING, OK);
             
-          //-------------------------------------------------------
+            sender = firstMessage.getSender();
+            
+            //-------------------------------------------------------
             // Indentation smaller for clarity
             //-------------------------------------------------------
-            
+
+    /*
+     * Initial state, we choose wether or not to process the request based
+     * on amount of queued jobs.
+     */
     registerFirstState(new OneShotBehaviour() {
         
-        private int end;
+        private int end = OK;
         
         @Override public void action() {
             System.out.println("Acceptance");
@@ -161,7 +194,10 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
             job = content.getValue();
             int queued = resource.queuedJobs();
             float work = (float) queued / resource.getProcessors();
-            end = work < 1.2 ? OK : FAIL; 
+            if (work > 1.2) {
+                end = FAIL;
+                DS.put(KEY_FAIL_REASON, "Too many queued jobs");
+            }
         }
         
         @Override
@@ -171,19 +207,37 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
         
     }, ACCEPTANCE);
     
+    /*
+     * We use the policy manager to map the request to the policy
+     */
     registerState(new OneShotBehaviour() {
-        @Override public void action() {
+        @Override
+        public void action() {
             System.out.println("Policy mapping");
+            UsagePolicy policy = policyManager.getPolicy(sender, job);
+            DS.put(KEY_POLICY, policy);
         }
     }, POLICY_MAPPING);
     
     registerState(new OneShotBehaviour() {
+        
+        private int end = OK;
+        
         @Override public void action() {
             System.out.println("Policy enforcing");
+            UsagePolicy policy = (UsagePolicy) DS.get(KEY_POLICY);
+            Result result = policy.use(job);
+            if (! result.result) {
+                DS.put(KEY_FAIL_REASON, result.message);
+                end = FAIL;
+            }
         }
-        @Override public int onEnd() {
-            return OK; 
+
+        @Override 
+        public int onEnd() {
+            return end; 
         }
+        
     }, POLICY_ENFORCING);
     
     // Job request was rejected due to policy & modality constraints
@@ -191,8 +245,9 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
         @Override public void action() {
             System.out.println("Rejection");
             ACLMessage reply = firstMessage.createReply();
-            JobRequestResponse resp = new JobRequestResponse(
-                    job.getId(), false, "Request arbitrarily rejected");
+            String reason = (String) DS.get(KEY_FAIL_REASON);
+            JobRequestResponse resp = 
+                    new JobRequestResponse(job.getId(), false, reason);
             sendMessage(reply, Action.JOB_COMPLETED, resp);
         }
     }, REJECT);
@@ -272,12 +327,12 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
     
     private class ControlProcessor extends SequentialBehaviour {
         
-        private ACLMessage message;
-        private String cid;
+//        private ACLMessage message;
+//        private String cid;
         
         public ControlProcessor(ACLMessage message) {
-            this.message = message;
-            cid = genCID();
+            //this.message = message;
+            //cid = genCID();
         }
         
     }
@@ -373,7 +428,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
             }
         });
         
-        policy.policies.put(new AID("Client", AID.ISLOCALNAME), 
+        policyManager.policies.put(new AID("Client", AID.ISLOCALNAME), 
                 new TokenBasedUsage(4));
         logger.success("PGA '" + name + "' created");
     }

@@ -1,12 +1,12 @@
-package hesp.agents;
+package hesp.policy;
 
 import jade.util.leap.Serializable;
 import hesp.protocol.Job;
 
 public interface UsagePolicy extends Serializable {
     
-    boolean canUse(Job job);
+    Result canUse(Job job);
     
-    boolean use(Job job);
+    Result use(Job job);
     
 }

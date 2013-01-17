@@ -48,8 +48,9 @@ public class ClientAgent extends HespAgent {
      * own initiated conversations.
      */
     @Override
-    protected void dispatchMessage(ACLMessage message) {
+    protected boolean dispatchMessage(ACLMessage message) {
         // Empty body
+        return false;
     }
     
     private class JobExecutor extends FSMBehaviour {

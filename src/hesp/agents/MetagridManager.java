@@ -41,6 +41,9 @@ import com.google.gson.JsonSyntaxException;
  * simulation. 
  */
 public class MetagridManager extends Agent {
+    
+    public static final String SERVICE_TYPE = "controller";
+    public static final String SERVICE_NAME = "grid-controller";
 
     private static final Logger logger = Logger.getJADELogger("metagrid.manager");
     private static final Ontology ontology = JADEManagementOntology.getInstance();
@@ -117,8 +120,8 @@ public class MetagridManager extends Agent {
         DFAgentDescription desc = new DFAgentDescription();
         desc.setName(getAID());
         ServiceDescription sd = new ServiceDescription();
-        sd.setType("controller");
-        sd.setName("grid-controller");
+        sd.setType(SERVICE_TYPE);
+        sd.setName(SERVICE_NAME);
         desc.addServices(sd);
         try {
             DFService.register(this, desc);
@@ -161,7 +164,7 @@ public class MetagridManager extends Agent {
     private void setupAgents() {
         try {
             setupJade();
-            //createAgent(Bank.class, "Bank");
+            createAgent(Bank.class, "Bank");
             createAgent(ProductionAgent.class, "Res1");
             createAgent(ProductionAgent.class, "Res2");
             createAgent(SocialAgent.class, "Soc");

@@ -189,7 +189,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
         private int end = OK;
         
         @Override public void action() {
-            System.out.println("Acceptance");
+            logger.info("Incoming job request (from " + sender + ")");
             Message<Job> content = decode(firstMessage, Job.class);
             job = content.getValue();
             int queued = resource.queuedJobs();
@@ -213,7 +213,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
     registerState(new OneShotBehaviour() {
         @Override
         public void action() {
-            System.out.println("Policy mapping");
+            //System.out.println("Policy mapping");
             UsagePolicy policy = policyManager.getPolicy(sender, job);
             DS.put(KEY_POLICY, policy);
         }
@@ -224,7 +224,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
         private int end = OK;
         
         @Override public void action() {
-            System.out.println("Policy enforcing");
+            //System.out.println("Policy enforcing");
             UsagePolicy policy = (UsagePolicy) DS.get(KEY_POLICY);
             Result result = policy.use(job);
             if (! result.result) {
@@ -243,7 +243,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
     // Job request was rejected due to policy & modality constraints
     registerLastState(new OneShotBehaviour() {
         @Override public void action() {
-            System.out.println("Rejection");
+            //System.out.println("Rejection");
             ACLMessage reply = firstMessage.createReply();
             String reason = (String) DS.get(KEY_FAIL_REASON);
             JobRequestResponse resp = 

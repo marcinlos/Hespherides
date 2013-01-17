@@ -232,7 +232,6 @@ abstract class ServiceLocator extends FSMBehaviour {
         
         @Override
         protected void onTick() {
-            System.out.println("Attempt " + state.attempts);
             Set<AID> found = tryLocate();
             // Success - we can move on
             if (! found.isEmpty()) {
@@ -264,7 +263,6 @@ abstract class ServiceLocator extends FSMBehaviour {
         
         @Override
         public void action() {
-            System.out.println("Has found it!");
             @SuppressWarnings("unchecked")
             Set<AID> ids = (Set<AID>) getDS().get(RESULT_KEY);
             int next = notifyServiceFound(ids);
@@ -294,7 +292,6 @@ abstract class ServiceLocator extends FSMBehaviour {
         
         @Override
         protected void onTick() {
-            System.out.println("Updating...");
             Set<AID> res = tryLocate();
             if (! res.isEmpty()) {
                 int action = notifyUpdate(res);
@@ -352,7 +349,7 @@ abstract class ServiceLocator extends FSMBehaviour {
     private OneShotBehaviour halt = new OneShotBehaviour() {
         @Override
         public void action() {
-            System.out.println("ServiceLocator: HALT");
+            // Empty for now
         }
     };
 

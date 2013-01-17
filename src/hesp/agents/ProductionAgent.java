@@ -44,7 +44,6 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
     private AID creator;
     
     private Map<AID, AgentRelation> relations = new HashMap<>();
-    
 
     private ProductionWindow window;
     private LogSink logger;
@@ -189,7 +188,8 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
         private int end = OK;
         
         @Override public void action() {
-            logger.info("Incoming job request (from " + sender + ")");
+            String name = sender.getLocalName();
+            logger.info("Incoming job request (from " + name + ")");
             Message<Job> content = decode(firstMessage, Job.class);
             job = content.getValue();
             int queued = resource.queuedJobs();
@@ -298,7 +298,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
     
     registerState(new OneShotBehaviour() {
         @Override public void action() {
-            System.out.println("Execution failure");
+            logger.error("Execution failure");
             ACLMessage reply = firstMessage.createReply();
             sendMessage(reply, Action.JOB_COMPLETED, report);
         }
@@ -306,7 +306,6 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
     
     registerState(new OneShotBehaviour() {
         @Override public void action() {
-            System.out.println("Execution success");
             ACLMessage reply = firstMessage.createReply();
             sendMessage(reply, Action.JOB_COMPLETED, report);
         }
@@ -417,6 +416,15 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
         resource = new Computation(this, 7, 50, this);
         addBehaviour(resource);
         
+        setupGUI();
+        
+        policyManager.policies.put(new AID("Client", AID.ISLOCALNAME), 
+                new TokenBasedUsage(4));
+        logger.success("PGA '" + name + "' created");
+    }
+
+
+    private void setupGUI() {
         Synchronous.invoke(new Runnable() {
             @Override
             public void run() {
@@ -427,10 +435,6 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
                 logger = window.getLogger().logSink();
             }
         });
-        
-        policyManager.policies.put(new AID("Client", AID.ISLOCALNAME), 
-                new TokenBasedUsage(4));
-        logger.success("PGA '" + name + "' created");
     }
 
     @Override

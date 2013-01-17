@@ -14,11 +14,15 @@ public enum Action {
     TRANSFER(Category.BANK),
     TRANSFER_ACK(Category.BANK),
     CHECK_ACC_STATE(Category.BANK),
-    ACC_STATE(Category.BANK);
+    ACC_STATE(Category.BANK),
+    
+    LS_BEAT(Category.LINK_SUPERVISION),
+    LS_ACK(Category.LINK_SUPERVISION),
+    LS_END(Category.LINK_SUPERVISION);
     
     
     public enum Category {
-        CONTROL, JOB, BANK
+        CONTROL, JOB, BANK, LINK_SUPERVISION
     }
     
     private final Category category;

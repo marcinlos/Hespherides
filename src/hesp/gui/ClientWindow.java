@@ -15,12 +15,7 @@ import javax.swing.JSplitPane;
  */
 public class ClientWindow extends JFrame {
 
-    public interface Listener {
-        void command(String text);
-    }
-
-    ClientAgent client;
-
+    private ClientAgent client;
     private LogPanel logPanel;
     private ClientControlPanel controlPanel;
     

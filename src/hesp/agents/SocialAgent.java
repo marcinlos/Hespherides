@@ -1,8 +1,15 @@
 package hesp.agents;
 
+import hesp.gui.SocialWindow;
+import hesp.gui.Synchronous;
 import hesp.protocol.Action;
+import hesp.protocol.Job;
+import hesp.protocol.JobReport;
+import hesp.protocol.JobRequestResponse;
 import hesp.protocol.Message;
+import hesp.util.LogSink;
 import jade.core.AID;
+import jade.core.behaviours.DataStore;
 import jade.core.behaviours.FSMBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
 import jade.lang.acl.ACLMessage;
@@ -19,6 +26,9 @@ public class SocialAgent extends HespAgent {
     private List<AID> pub = new ArrayList<>();
     
     private int endownment = 100;
+    
+    private SocialWindow window;
+    private LogSink logger;
     
     
     @Override
@@ -57,6 +67,18 @@ public class SocialAgent extends HespAgent {
         private static final int OK = 0;
         private static final int FAIL = 1;
         
+        /** 
+         * Key to data store associated with string describing the reason
+         * of refusal.
+         */
+        private static final int KEY_FAIL_REASON = 1234;
+        
+        private Job job;
+        private AID sender;
+        private JobReport report;
+        
+        private DataStore DS = getDataStore();
+        
         public JobSubmissionProcessor(final ACLMessage firstMessage) {
 
             registerTransition(ACCEPTANCE, POLICY_MAPPING, OK);
@@ -90,38 +112,45 @@ public class SocialAgent extends HespAgent {
             System.out.println("Policy enforcing");
         }
         @Override public int onEnd() { 
+            DS.put(KEY_FAIL_REASON, "Too many queued jobs");
             return Math.random() > 0.5 ? OK : FAIL; 
         }
     }, POLICY_ENFORCING);
     
     registerLastState(new OneShotBehaviour() {
         @Override public void action() {
-
+            ACLMessage reply = firstMessage.createReply();
+            String reason = (String) DS.get(KEY_FAIL_REASON);
+            JobRequestResponse resp = 
+                    new JobRequestResponse(job.getId(), false, reason);
+            sendMessage(reply, Action.JOB_COMPLETED, resp);
         }
     }, REJECT);
     
     registerState(new OneShotBehaviour() {
         @Override public void action() {
-
+            
         }
     }, DISCOVERY);
     
     registerState(new OneShotBehaviour() {
         @Override
         public void action() {
-
         }
     }, EXECUTION);
     
     registerState(new OneShotBehaviour() {
         @Override public void action() {
-            System.out.println("Execution failure");
+            logger.error("Execution failure");
+            ACLMessage reply = firstMessage.createReply();
+            sendMessage(reply, Action.JOB_COMPLETED, report);
         }
     }, EXEC_FAILURE);
     
     registerState(new OneShotBehaviour() {
         @Override public void action() {
-            System.out.println("Execution success");
+            ACLMessage reply = firstMessage.createReply();
+            sendMessage(reply, Action.JOB_COMPLETED, report);
         }
     }, EXEC_SUCCESS);
     
@@ -143,8 +172,20 @@ public class SocialAgent extends HespAgent {
     public void setup() {
         super.setup();
         name = getLocalName();
-        
+        setupGUI();
         System.out.println("SGA '" + name + "' created");
+    }
+    
+    private void setupGUI() {
+        Synchronous.invoke(new Runnable() {
+            @Override
+            public void run() {
+                window = new SocialWindow(SocialAgent.this);
+                window.pack();
+                window.setVisible(true);
+                logger = window.getLogger().logSink();
+            }
+        });
     }
 
     @Override

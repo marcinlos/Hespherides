@@ -137,6 +137,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
                     MessageTemplate.MatchConversationId(cid));*/
 
             registerTransition(ACCEPTANCE, POLICY_MAPPING, OK);
+            registerTransition(ACCEPTANCE, REJECT, FAIL);
             registerTransition(POLICY_MAPPING, POLICY_ENFORCING, OK);
             registerTransition(POLICY_ENFORCING, REJECT, FAIL);
             registerTransition(POLICY_ENFORCING, SUBMIT, OK);
@@ -151,11 +152,23 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
             //-------------------------------------------------------
             
     registerFirstState(new OneShotBehaviour() {
+        
+        private int end;
+        
         @Override public void action() {
             System.out.println("Acceptance");
             Message<Job> content = decode(firstMessage, Job.class);
             job = content.getValue();
+            int queued = resource.queuedJobs();
+            float work = (float) queued / resource.getProcessors();
+            end = work < 1.2 ? OK : FAIL; 
         }
+        
+        @Override
+        public int onEnd() {
+            return end;
+        }
+        
     }, ACCEPTANCE);
     
     registerState(new OneShotBehaviour() {
@@ -168,8 +181,8 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
         @Override public void action() {
             System.out.println("Policy enforcing");
         }
-        @Override public int onEnd() { 
-            return Math.random() > 0.5 ? OK : FAIL; 
+        @Override public int onEnd() {
+            return OK; 
         }
     }, POLICY_ENFORCING);
     
@@ -276,6 +289,15 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
      */
     public void addListener(ProductionListener listener) {
         listeners.add(ProductionListener.class, listener);
+    }
+    
+    /**
+     * Unregisters the production events listener
+     * 
+     * @param listener Listener to remove from the list
+     */
+    public void removeListener(ProductionListener listener) {
+        listeners.remove(ProductionListener.class, listener);
     }
     
 

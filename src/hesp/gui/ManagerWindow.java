@@ -4,9 +4,13 @@ import hesp.agents.MetagridManager;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.event.ActionEvent;
+import java.beans.PropertyChangeListener;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.AbstractAction;
+import javax.swing.Action;
 import javax.swing.JFrame;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
@@ -38,7 +42,14 @@ public class ManagerWindow extends JFrame {
         setLocationByPlatform(true);
         
         menubar = new JMenuBar();
-        menubar.add(new JMenu("File..."));
+        JMenu menu = new JMenu("File...");
+        menubar.add(menu);
+        menu.add(new AbstractAction("Create bank") {
+            @Override
+            public void actionPerformed(ActionEvent arg0) {
+                manager.createBank();
+            }
+        });
         setJMenuBar(menubar);
         
         setLayout(new BorderLayout());

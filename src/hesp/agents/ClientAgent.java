@@ -13,16 +13,13 @@ import jade.core.AID;
 import jade.core.behaviours.Behaviour;
 import jade.core.behaviours.FSMBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
-import jade.domain.DFService;
-import jade.domain.FIPAException;
-import jade.domain.FIPAAgentManagement.DFAgentDescription;
-import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 
-import java.util.Random;
+import java.util.HashSet;
+import java.util.Set;
 
-import javax.swing.SwingUtilities;
+import javax.swing.event.EventListenerList;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -36,12 +33,15 @@ import com.google.gson.JsonSyntaxException;
  */
 public class ClientAgent extends HespAgent {
     
-    private Random rand = new Random();
-    private AID bank;
-    
     private ClientWindow window;   
+    
     private LogSink logger;
     private ServiceLocator locator;
+    private AID bank;
+    private Set<AID> banks = new HashSet<AID>(); 
+    
+    /** Lists of client agent events listeners */
+    private EventListenerList listeners = new EventListenerList();
     
     /**
      * Client currently does not receive messages outside the scope of his
@@ -166,7 +166,27 @@ public class ClientAgent extends HespAgent {
         }
     }
     
+    /**
+     * Registers new production events listener.
+     * 
+     * @param listener Listener to add to list
+     */
+    public void addListener(ClientAgentListener listener) {
+        listeners.add(ClientAgentListener.class, listener);
+    }
     
+    /**
+     * Unregisters the production events listener
+     * 
+     * @param listener Listener to remove from the list
+     */
+    public void removeListener(ClientAgentListener listener) {
+        listeners.remove(ClientAgentListener.class, listener);
+    }
+    
+    /**
+     * {@inheritDoc}
+     */
     protected void handleMessage(ACLMessage message) {
         JsonParser parser = new JsonParser();
         try {
@@ -243,18 +263,35 @@ public class ClientAgent extends HespAgent {
      * using {@link ServiceLocator}
      */
     private void findServices() {
-        locator = new ServiceLocator(this, "grid-bank"){//Bank.SERVICE_NAME) {
+        locator = new ServiceLocator(this, Bank.SERVICE_NAME) {
             @Override
-            protected int serviceFound(DFAgentDescription[] ids) {
-                bank = ids[0].getName();
+            protected int serviceFound(Set<AID> ids) {
+                bank = ids.iterator().next();
+                banks.addAll(ids);
                 logger.success("Bank service found");
                 return ServiceLocator.CONTINUE;
             }
             
+            @Override
+            protected int serviceUpdate(Set<AID> found, Set<AID> lost) {
+                if (lost.contains(bank)) {
+                    logger.error("Lost communication with primary bank");
+                    bank = null;
+                }
+                if (! found.isEmpty()) {
+                    logger.success("Bank service found");
+                    if (bank == null) {
+                        found.iterator().next();
+                    }
+                }
+                banks.addAll(found);
+                banks.removeAll(lost);
+                return ServiceLocator.CONTINUE;
+            }
+            
             @Override protected int timeout() {
-                //System.out.println("Fuck");
                 logger.error("Unable to locate Bank (timeout)");
-                return ServiceLocator.STOP;
+                return ServiceLocator.CONTINUE;
             }
         };
         addBehaviour(locator);

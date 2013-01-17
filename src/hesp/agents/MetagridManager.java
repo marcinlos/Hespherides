@@ -98,7 +98,6 @@ public class MetagridManager extends Agent {
             PrintStream printer = new PrintStream(out);
             e.printStackTrace(printer);
             logger.severe(out.toString());
-            //e.printStackTrace(System.err);
         }
     }
     
@@ -162,14 +161,24 @@ public class MetagridManager extends Agent {
     private void setupAgents() {
         try {
             setupJade();
-            createAgent(Bank.class, "Bank");
-            createAgent(ProductionAgent.class, "Res");
+            //createAgent(Bank.class, "Bank");
+            createAgent(ProductionAgent.class, "Res1");
+            createAgent(ProductionAgent.class, "Res2");
             createAgent(SocialAgent.class, "Soc");
             createAgent(ClientAgent.class, "Client");
 
         } catch (Exception e) {
             e.printStackTrace(System.err);
         }
+    }
+    
+    //TODO: Dirty checker
+    public void createBank() {
+        createAgent(Bank.class, "Bank");
+    }
+    
+    public void destroyBank() {
+        
     }
 
     @Override

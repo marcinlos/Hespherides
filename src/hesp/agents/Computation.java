@@ -117,6 +117,14 @@ public class Computation extends TickerBehaviour {
     public int freeProcessors() {
         return processors - workload();
     }
+    
+    /**
+     * @return number of queued jobs (including currently executed)
+     */
+    public int queuedJobs() {
+        return jobs.size();
+    }
+    
 
     @Override
     protected void onTick() {

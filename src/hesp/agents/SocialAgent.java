@@ -14,8 +14,9 @@ public class SocialAgent extends HespAgent {
     
     private String name;
     
-    private List<AID> direct = new ArrayList<>();
+    private List<AID> ownedPA = new ArrayList<>();
     private List<AID> purchase = new ArrayList<>();
+    private List<AID> pub = new ArrayList<>();
     
     private int endownment = 100;
     

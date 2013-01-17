@@ -1,5 +1,6 @@
 package hesp.agents;
 
+import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.Behaviour;
 import jade.core.behaviours.DataStore;
@@ -10,6 +11,9 @@ import jade.domain.DFService;
 import jade.domain.FIPAException;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
+
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Abstract class to keep track of services like banking system. Searches
@@ -31,7 +35,6 @@ abstract class ServiceLocator extends FSMBehaviour {
     private static final String SEARCHING = "Searching";
     private static final String HAS_FOUND = "Has found";
     private static final String TIMED_OUT = "Timed out";
-    private static final String AFTER_TIMEOUT = "After timeout";
     private static final String UPDATING = "Updating";
     private static final String HALT = "Halt";
     
@@ -68,37 +71,64 @@ abstract class ServiceLocator extends FSMBehaviour {
     public static final int CONTINUE = 13;
 
     private Agent agent;
-    private String name;
     
+    /** Name of service this instance is supposed to keep track of */
+    private String serviceName;
+    
+    /** Currently known service providers */
+    private Set<AID> providers = new HashSet<>();
+    
+    /** Key with witch results are associated in data store */
     private static final int RESULT_KEY = 132435;
     
-    private final int initialDelay = 50;
+    /** Time between initial and second query */
+    private final int initialDelay = 200;
+    /**
+     * Maximum numer of ignored unsuccessful queries - i.e. number of attempts
+     * in exponential backoff algorithm
+     */
     private final int maxAttempts = 5;
+    
+    /**
+     * Time between consecutive updates, if this mode has been chosen after
+     * the first successful query
+     */
     private int updateSlot = 5000;
 
-    
-    public ServiceLocator(Agent agent, String name) {
+    /**
+     * Creates a new service locator bound to {@code agent} and keeping track
+     * of available {@code serviceName} providers.
+     * 
+     * @param agent Agent on whose behalf queries shall be performed
+     * @param serviceName Name of service to query 
+     */
+    public ServiceLocator(Agent agent, String serviceName) {
         this.agent = agent;
-        this.name = name;
-        
-        registerTransition(INITIAL, SEARCHING, T_OK);
-        registerTransition(INITIAL, HAS_FOUND, T_FOUND);
-        registerTransition(SEARCHING, TIMED_OUT, T_FAIL);
-        registerTransition(SEARCHING, HAS_FOUND, T_FOUND);
+        this.serviceName = serviceName;
+        // initialize FSM
+        setupFSM();
+    }
+
+    /**
+     * Registers states and transitions, FSM creation
+     */
+    private void setupFSM() {
+        registerTransition(INITIAL, SEARCHING, T_OK, new String[]{SEARCHING});
+        registerTransition(INITIAL, HAS_FOUND, T_FOUND, new String[]{HAS_FOUND});
+        registerTransition(SEARCHING, TIMED_OUT, T_FAIL, new String[]{TIMED_OUT});
+        registerTransition(SEARCHING, HAS_FOUND, T_FOUND, new String[]{HAS_FOUND});
         registerTransition(HAS_FOUND, HALT, STOP);
-        registerTransition(HAS_FOUND, UPDATING, CONTINUE);
-        registerTransition(UPDATING, INITIAL, RESTART);
+        registerTransition(HAS_FOUND, UPDATING, CONTINUE, new String[]{UPDATING});
+        registerTransition(UPDATING, INITIAL, RESTART, new String[]{INITIAL});
         registerTransition(UPDATING, UPDATING, IGNORE);
         registerTransition(UPDATING, HALT, STOP);
-        registerTransition(TIMED_OUT, AFTER_TIMEOUT, CONTINUE);
         registerTransition(TIMED_OUT, HALT, STOP);
-        registerTransition(AFTER_TIMEOUT, HAS_FOUND, T_FOUND);
+        registerTransition(TIMED_OUT, UPDATING, CONTINUE);
         
         registerFirstState(initial, INITIAL);
         registerState(searching, SEARCHING);
         registerState(hasFound, HAS_FOUND);
         registerState(timedOut, TIMED_OUT);
-        registerState(afterTimeout, AFTER_TIMEOUT);
         registerState(updating, UPDATING);
         registerLastState(halt, HALT);
     }
@@ -112,26 +142,57 @@ abstract class ServiceLocator extends FSMBehaviour {
      * Sends request to DF agent to get information about agents with
      * matching service name.
      * 
-     * @return array of matching agents' descriptions, or {@code null}
-     * if no agents are found, or an exception was thrown by DF search method.
+     * @return set of providing agents' identifiers, or {@code null} if an
+     * error occurred
      */
-    private DFAgentDescription[] tryLocate() {
+    private Set<AID> tryLocate() {
         DFAgentDescription pattern = new DFAgentDescription();
-        ServiceDescription sd = new ServiceDescription();
-        sd.setName(name);
-        pattern.addServices(sd);
+        ServiceDescription serviceDesc = new ServiceDescription();
+        serviceDesc.setName(serviceName);
+        pattern.addServices(serviceDesc);
         DFAgentDescription[] results = null;
+
         try {
             results = DFService.search(agent, pattern);
-            if (results.length > 0) {
-                return results;
-            } else {
-                return null;
+            Set<AID> resultSet = new HashSet<>();
+            for (DFAgentDescription desc : results) {
+                resultSet.add(desc.getName());
             }
+            return resultSet;
         } catch (FIPAException e) {
+            // Exception is treated as a failed query, though it may be 
+            // a symptom of more severe condition. Let the user handle it.
             fail(e);
             return null;
         }
+    }
+    
+    /**
+     * Saves found providers, and invokes {@link #serviceFound(Set)} callback
+     * method.
+     * 
+     * @param found Set of found providers
+     * @return action code, as returned by {@link #serviceFound(Set)}
+     */
+    private int notifyServiceFound(Set<AID> found) {
+        providers = found;
+        return serviceFound(found);
+    }
+    
+    /**
+     * Updates internal state and invokes {@link #serviceUpdate(Set)} callback
+     * method.
+     * 
+     * @param update Set of just found providers (all returned by the DF query)
+     * @return action code, as retudned by {@link #serviceUpdate(Set)}
+     */
+    private int notifyUpdate(Set<AID> update) {
+        Set<AID> found = new HashSet<AID>(update);
+        found.removeAll(providers);
+        Set<AID> lost = new HashSet<AID>(providers);
+        lost.removeAll(update);
+        providers = update;
+        return serviceUpdate(found, lost);
     }
     
     private OneShotBehaviour initial = new OneShotBehaviour() {
@@ -141,9 +202,9 @@ abstract class ServiceLocator extends FSMBehaviour {
         @Override
         public void action() {
             // Try to find the service
-            DFAgentDescription[] res = tryLocate();
-            if (res != null) {
-                getDS().put(RESULT_KEY, res);
+            Set<AID> found = tryLocate();
+            if (! found.isEmpty()) {
+                getDS().put(RESULT_KEY, found);
                 end = T_FOUND;
             } else {
                 // Initiate exponential backoff
@@ -166,16 +227,16 @@ abstract class ServiceLocator extends FSMBehaviour {
             int attempts = 0;
             int delay = initialDelay;
         }   
-        int end = T_FAIL;
+        private int end = T_FAIL;
         private State state = new State();
         
         @Override
         protected void onTick() {
             System.out.println("Attempt " + state.attempts);
-            DFAgentDescription[] res = tryLocate();
+            Set<AID> found = tryLocate();
             // Success - we can move on
-            if (res != null) {
-                getDS().put(RESULT_KEY, res);
+            if (! found.isEmpty()) {
+                getDS().put(RESULT_KEY, found);
                 end = T_FOUND;
                 stop();
             } else {
@@ -184,8 +245,6 @@ abstract class ServiceLocator extends FSMBehaviour {
                     state.delay *= 2;
                     reset(state.delay);
                 } else {
-                    // Restore initial state
-                    state = new State();
                     stop();
                 }
             }
@@ -193,6 +252,8 @@ abstract class ServiceLocator extends FSMBehaviour {
         
         @Override
         public int onEnd() {
+            // restore the initial state
+            state = new State();
             return end;
         }
     };
@@ -204,9 +265,9 @@ abstract class ServiceLocator extends FSMBehaviour {
         @Override
         public void action() {
             System.out.println("Has found it!");
-            DFAgentDescription[] results = 
-                    (DFAgentDescription[]) getDS().get(RESULT_KEY);
-            int next = serviceFound(results);
+            @SuppressWarnings("unchecked")
+            Set<AID> ids = (Set<AID>) getDS().get(RESULT_KEY);
+            int next = notifyServiceFound(ids);
             if (next == STOP) {
                 end = STOP;
             } else if (next == CONTINUE) {
@@ -234,24 +295,21 @@ abstract class ServiceLocator extends FSMBehaviour {
         @Override
         protected void onTick() {
             System.out.println("Updating...");
-            DFAgentDescription[] res = tryLocate();
-            if (res != null) {
-                int action = serviceUpdate(res);
+            Set<AID> res = tryLocate();
+            if (! res.isEmpty()) {
+                int action = notifyUpdate(res);
                 if (action == STOP) {
                     end = STOP;
                     stop();
-                } else if (action != CONTINUE) {
-                    fail(new IllegalStateException("Invalid action returned"));
-                }
-            } else {
-                int action = serviceLost();
-                if (action == STOP) {
-                    end = STOP;
+                } else if (action == CONTINUE) {
+                    end = CONTINUE;
+                } else if (action == RESTART) { 
+                    end = RESTART;
                     stop();
-                } else if (action != CONTINUE) {
+                } else {
                     fail(new IllegalStateException("Invalid action returned"));
                 }
-            }
+            } 
         }
         
         @Override
@@ -273,34 +331,15 @@ abstract class ServiceLocator extends FSMBehaviour {
             int action = timeout();
             if (action == RESTART) {
                 end = RESTART;
-                ServiceLocator.this.restart();
             } else if (action == CONTINUE) {
                 end = CONTINUE; 
             } else if (action == STOP) {
                 end = STOP;
+            } else {
+                fail(new IllegalStateException("Invalid action returned"));
             }
         }
         
-        @Override
-        public int onEnd() {
-            return end;
-        }
-    };
-    
-    private Behaviour afterTimeout = new TickerBehaviour(agent, updateSlot) {
-
-        private int end = CONTINUE;
-
-        @Override
-        protected void onTick() {
-            System.out.println("Still trying...");
-            DFAgentDescription[] res = tryLocate();
-            if (res != null) {
-                end = T_FOUND;
-                stop();
-            }
-        }
-
         @Override
         public int onEnd() {
             return end;
@@ -318,7 +357,8 @@ abstract class ServiceLocator extends FSMBehaviour {
     };
 
     /**
-     * Invoked when the service has been found.
+     * Invoked when the service provider has been found for the first time,
+     * that is, every time .
      * <p>
      * Return value determines the action to undertake next. Following values
      * are currently supported for this method:
@@ -332,7 +372,7 @@ abstract class ServiceLocator extends FSMBehaviour {
      * @param ids Information about discovered service providers
      * @return action code
      */
-    abstract protected int serviceFound(DFAgentDescription[] ids);
+    abstract protected int serviceFound(Set<AID> ids);
     
     /**
      * Invoked after each update in Updating mode.
@@ -346,12 +386,15 @@ abstract class ServiceLocator extends FSMBehaviour {
      * </ul>
      * Default implementation returns {@link #CONTINUE}.
      * 
-     * @param ids Array of agent description structures, containing information
-     * about services matching the passed description.
+     * @param found Set of agents just found during this update, i.e. agents
+     * that have not been present in the previous update
+     * 
+     * @param lost Set of agents lost between last updates, i.e. agents that
+     * have been present in the previous update, but are not in the current.
      * 
      * @return action code
      */
-    protected int serviceUpdate(DFAgentDescription[] ids) {
+    protected int serviceUpdate(Set<AID> found, Set<AID> lost) {
         return CONTINUE;
     }
         
@@ -365,27 +408,6 @@ abstract class ServiceLocator extends FSMBehaviour {
      */
     protected void fail(Exception e) {
     
-    }
-    
-    /**
-     * Invoked when the service has ceased to be visible during updates. 
-     * <p>
-     * The return value determines an action the {@code ServiceLocator} shall
-     * undertake next. Following return values are currently supported:
-     * <ul>
-     * <li>{@link #CONTINUE} - switch to communication failure recovery state
-     * 
-     * <li>{@link #IGNORE} - ignore the failure, and continue to operate
-     * in Updating state
-     * 
-     * <li>{@link #STOP} - finish the algorithm
-     * </ul>
-     * Default implementation returns {@code #IGNORE}.
-     * 
-     * @return action code
-     */
-    protected int serviceLost() {
-        return IGNORE;
     }
     
     /**

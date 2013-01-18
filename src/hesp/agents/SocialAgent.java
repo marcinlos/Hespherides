@@ -9,9 +9,11 @@ import hesp.protocol.JobRequestResponse;
 import hesp.protocol.Message;
 import hesp.util.LogSink;
 import jade.core.AID;
+import jade.core.behaviours.Behaviour;
 import jade.core.behaviours.DataStore;
 import jade.core.behaviours.FSMBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
+import jade.core.behaviours.ParallelBehaviour;
 import jade.lang.acl.ACLMessage;
 
 import java.util.ArrayList;
@@ -91,14 +93,28 @@ public class SocialAgent extends HespAgent {
             registerTransition(EXEC_FAILURE, BILLING, OK);
             registerTransition(EXEC_SUCCESS, BILLING, OK);
             
-          //-------------------------------------------------------
+            sender = firstMessage.getSender();
+            
+            //-------------------------------------------------------
             // Indentation smaller for clarity
             //-------------------------------------------------------
             
     registerFirstState(new OneShotBehaviour() {
+        
+        private int end = OK;
+        
         @Override public void action() {
-            System.out.println("Acceptance");
+            String name = sender.getLocalName();
+            logger.info("Incoming job request (from " + name + ")");
+            Message<Job> content = Message.decode(firstMessage, Job.class);
+            job = content.getValue();
         }
+        
+        @Override
+        public int onEnd() {
+            return end;
+        }
+        
     }, ACCEPTANCE);
     
     registerState(new OneShotBehaviour() {
@@ -112,7 +128,7 @@ public class SocialAgent extends HespAgent {
             System.out.println("Policy enforcing");
         }
         @Override public int onEnd() { 
-            DS.put(KEY_FAIL_REASON, "Too many queued jobs");
+            DS.put(KEY_FAIL_REASON, "I dont wanna");
             return Math.random() > 0.5 ? OK : FAIL; 
         }
     }, POLICY_ENFORCING);
@@ -129,22 +145,51 @@ public class SocialAgent extends HespAgent {
     
     registerState(new OneShotBehaviour() {
         @Override public void action() {
-            final AID aid = new AID("Res1", AID.ISLOCALNAME);
-            LinkSupervisionMaster master = new LinkSupervisionMaster(SocialAgent.this, aid, firstMessage.getConversationId()) {
+            AID aid = new AID("Res1", AID.ISLOCALNAME);
+            String cid = firstMessage.getConversationId();
+            
+            final LinkSupervisionSlave slave = new LinkSupervisionSlave(sender, 
+                    SocialAgent.this, cid);
+            
+            final LinkSupervisionMaster master = new LinkSupervisionMaster(
+                    SocialAgent.this, aid, cid) {
                 
                 @Override
                 protected int slaveTimeout() {
-                    // TODO Auto-generated method stub
+                    System.out.println("Production agent timed out");
+                    report = new JobReport(job.getId(), false, "Production " +
+                            "agent timed out");
+                    slave.stop(FAIL);
                     return FAIL;
                 }
                 
                 @Override
                 protected int finished() {
-                    // TODO Auto-generated method stub
+                    System.out.println("Production agent finished");
+                    slave.stop(OK);
                     return OK;
                 }
             };
-            registerState(master, EXECUTION);
+            
+            ParallelBehaviour exec = new ParallelBehaviour() {
+                {
+                    addSubBehaviour(slave);
+                    addSubBehaviour(master);
+                }
+                
+                @Override
+                public int onEnd() {
+                    super.onEnd();
+                    return slave.getExitStatus();
+                }
+            };
+            registerState(exec, EXECUTION);
+            
+            // TODO: Make it real
+            ACLMessage reply = firstMessage.createReply();
+            JobRequestResponse resp = new JobRequestResponse(
+                    job.getId(), true, "Request accepted");
+            sendMessage(reply, Action.JOB_SUBMITTED, resp);
         }
     }, DISCOVERY);
     

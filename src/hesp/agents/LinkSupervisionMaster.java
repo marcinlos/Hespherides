@@ -24,14 +24,14 @@ import jade.lang.acl.MessageTemplate;
  */
 public abstract class LinkSupervisionMaster extends ParallelBehaviour {
     
-    private int beatTime = 1000;
+    private int beatTime = 2000;
     //private int beatTimeout = 500;
     
     // Max missed beats
     private int treshold = 3;
 
     private boolean running = true;
-    private int end;
+    private int exitStatus;
     
     private HespAgent master;
     private AID slave;
@@ -73,18 +73,18 @@ public abstract class LinkSupervisionMaster extends ParallelBehaviour {
                         break;
                     case LS_END:
                         stopProtocol();
-                        end = finished();
+                        exitStatus = finished();
                         break;
                     }
                     } catch (JsonSyntaxException e) {
-                        end = handleNotUnderstood(ack);
+                        exitStatus = handleNotUnderstood(ack);
                     }
                 } else {
                     long ackTime = System.currentTimeMillis();
                     long elapsed = ackTime - lastAck;
                     if (elapsed > treshold * beatTime) {
                         // Timeout
-                        end = slaveTimeout();
+                        exitStatus = slaveTimeout();
                         stopProtocol();
                     }
                 }
@@ -102,6 +102,13 @@ public abstract class LinkSupervisionMaster extends ParallelBehaviour {
         running = false;
     }
     
+    public int getExitStatus() {
+        return exitStatus;
+    }
+    
+    public void setExitStatus(int code) {
+        exitStatus = code;
+    }
     
     private void sendBeat() {
         ACLMessage message = master.emptyMessage(ACLMessage.REQUEST);
@@ -112,7 +119,7 @@ public abstract class LinkSupervisionMaster extends ParallelBehaviour {
     
     @Override 
     public int onEnd() {
-        return end;
+        return exitStatus;
     }
     
     /**

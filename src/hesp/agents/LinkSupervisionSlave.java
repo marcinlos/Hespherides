@@ -19,10 +19,10 @@ import jade.lang.acl.MessageTemplate;
  * @author marcinlos
  * @see LinkSupervisionMaster
  */
-public abstract class LinkSupervisionSlave extends Behaviour {
+public class LinkSupervisionSlave extends Behaviour {
 
     private boolean running = true;
-    private int end;
+    private int exitStatus;
     
     private String cid;
     private HespAgent slave;
@@ -35,6 +35,7 @@ public abstract class LinkSupervisionSlave extends Behaviour {
     }
     
     private void sendAck(ACLMessage beat) {
+        System.out.println("Ack");
         ACLMessage ack = beat.createReply();
         slave.sendMessage(ack, Action.LS_ACK, null);
     }
@@ -60,6 +61,14 @@ public abstract class LinkSupervisionSlave extends Behaviour {
             }
         }
     }
+    
+    public int getExitStatus() {
+        return exitStatus;
+    }
+    
+    public void setExitStatus(int code) {
+        exitStatus = code;
+    }
 
     @Override
     public boolean done() {
@@ -68,11 +77,11 @@ public abstract class LinkSupervisionSlave extends Behaviour {
     
     @Override
     public int onEnd() {
-        return end;
+        return exitStatus;
     }
     
     public void stop(int code) {
-        end = code;
+        exitStatus = code;
         running = false;
         
         ACLMessage ack = slave.emptyMessage(ACLMessage.INFORM);
@@ -81,7 +90,9 @@ public abstract class LinkSupervisionSlave extends Behaviour {
         slave.sendMessage(ack, Action.LS_END, null);
     }
 
-    protected abstract int masterTimeout();
+    protected int masterTimeout() {
+        return 0;
+    };
     
     protected int handleNotUnderstood(ACLMessage message) {
         return 0;

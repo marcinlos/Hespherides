@@ -75,7 +75,7 @@ public class MetagridManager extends Agent {
             ca.setAgentName(name);
             ca.setClassName(clazz.getCanonicalName());
             ca.setContainer(container);
-            
+
             Action act = new Action(getAMS(), ca);
             ACLMessage req = new ACLMessage(ACLMessage.REQUEST);
             req.addReceiver(getAMS());

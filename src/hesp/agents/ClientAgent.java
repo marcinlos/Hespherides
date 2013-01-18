@@ -160,18 +160,27 @@ public class ClientAgent extends HespAgent {
             ACLMessage reply = receive(template);
             if (reply != null) {
                 if (reply.getPerformative() != ACLMessage.FAILURE) {
-                    Message<JobRequestResponse> msg = 
-                            Message.decode(reply, JobRequestResponse.class);
-                    JobRequestResponse resp = msg.getValue();
-                    if (resp.isAccepted()) {
-                        end = OK;
-                    } else {
+                    try {
+                        Message<JobRequestResponse> msg = 
+                                Message.decode(reply, JobRequestResponse.class);
+                        JobRequestResponse resp = msg.getValue();
+                        if (resp == null) {
+                            System.err.println(reply);
+                        }
+                        if (resp.isAccepted()) {
+                            end = OK;
+                        } else {
+                            end = FAIL;
+                            DS.put(KEY_FAIL_REASON, resp.getDetails());
+                        }
+                        // callback
+                        requestProcessed(resp);
+                        run = false;
+                    } catch (JsonSyntaxException e) {
+                        DS.put(KEY_FAIL_REASON, "Invalid response");
+                        run = false;
                         end = FAIL;
-                        DS.put(KEY_FAIL_REASON, resp.getDetails());
                     }
-                    // callback
-                    requestProcessed(resp);
-                    run = false;
                 } else {
                     DS.put(KEY_FAIL_REASON, "Message delivery failure");
                     run = false;

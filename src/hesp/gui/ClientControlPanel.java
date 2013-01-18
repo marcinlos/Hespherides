@@ -148,7 +148,7 @@ class ClientControlPanel extends JPanel {
         timeParameterPanel = new TimeParamsPanel();
 
         // Create the widgets
-        agentBox = new JComboBox<>(new String[] { "Res1", "Res2", "Other..." });
+        agentBox = new JComboBox<>(new String[] { "Soc", "Res1", "Res2", "Other..." });
         agentBox.setEditable(true);
 
         indefinitelyCheckbox = new JCheckBox("Indefinitely");

@@ -33,7 +33,7 @@ public class SocialAgent extends HespAgent {
     
     @Override
     protected boolean dispatchMessage(ACLMessage message) {
-        Message<?> content = decode(message, Object.class);
+        Message<?> content = Message.decode(message, Object.class);
         Action action = content.getAction();
         switch (action.category()) {
         case CONTROL: 
@@ -129,7 +129,22 @@ public class SocialAgent extends HespAgent {
     
     registerState(new OneShotBehaviour() {
         @Override public void action() {
-            
+            final AID aid = new AID("Res1", AID.ISLOCALNAME);
+            LinkSupervisionMaster master = new LinkSupervisionMaster(SocialAgent.this, aid, firstMessage.getConversationId()) {
+                
+                @Override
+                protected int slaveTimeout() {
+                    // TODO Auto-generated method stub
+                    return FAIL;
+                }
+                
+                @Override
+                protected int finished() {
+                    // TODO Auto-generated method stub
+                    return OK;
+                }
+            };
+            registerState(master, EXECUTION);
         }
     }, DISCOVERY);
     

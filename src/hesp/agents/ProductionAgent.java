@@ -18,6 +18,7 @@ import jade.core.behaviours.Behaviour;
 import jade.core.behaviours.DataStore;
 import jade.core.behaviours.FSMBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
+import jade.core.behaviours.ParallelBehaviour;
 import jade.core.behaviours.SequentialBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAException;
@@ -65,25 +66,6 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
             }
             return policy;
         }
-        
-//        public Result canUse(AID agent, Job job) {
-//            UsagePolicy policy = policies.get(agent);
-//            if (policy != null) {
-//                return policy.canUse(job);
-//            } else {
-//                return defaultPolicy.canUse(job);
-//            }
-//        }
-//        
-//        public Result use(AID agent, Job job) {
-//            UsagePolicy policy = policies.get(agent);
-//            if (policy != null) {
-//                return policy.use(job);
-//            } else {
-//                return defaultPolicy.use(job);
-//            }
-//        }
-        
     }
     
     private PolicyManager policyManager = new PolicyManager();
@@ -109,7 +91,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
     
     @Override
     protected boolean dispatchMessage(ACLMessage message) {
-        Message<?> content = decode(message, Object.class);
+        Message<?> content = Message.decode(message, Object.class);
         Action action = content.getAction();
         switch (action.category()) {
         case CONTROL: 
@@ -127,8 +109,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
      * Asynchronous job submission processor
      */
     private class JobSubmissionProcessor extends FSMBehaviour {
-        //private MessageTemplate template;
-        //private String cid;
+        
         private Job job;
         private AID sender;
         private JobReport report;
@@ -157,10 +138,6 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
         private DataStore DS = getDataStore();
 
         public JobSubmissionProcessor(final ACLMessage firstMessage) {
-            //cid = genCID();
-            /*this.template = MessageTemplate.and(
-                    MessageTemplate.MatchProtocol(Protocols.GRID),
-                    MessageTemplate.MatchConversationId(cid));*/
 
             registerTransition(ACCEPTANCE, POLICY_MAPPING, OK);
             registerTransition(ACCEPTANCE, REJECT, FAIL);
@@ -190,7 +167,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
         @Override public void action() {
             String name = sender.getLocalName();
             logger.info("Incoming job request (from " + name + ")");
-            Message<Job> content = decode(firstMessage, Job.class);
+            Message<Job> content = Message.decode(firstMessage, Job.class);
             job = content.getValue();
             int queued = resource.queuedJobs();
             float work = (float) queued / resource.getProcessors();
@@ -252,6 +229,58 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
         }
     }, REJECT);
     
+    final class ExecSupervisor extends ParallelBehaviour {
+        private int end = OK;
+        LinkSupervisionSlave slave;
+        Behaviour waiter;
+
+        private ExecSupervisor(String cid) {
+            slave = new LinkSupervisionSlave(sender, ProductionAgent.this,
+                    cid) {
+                @Override
+                protected int masterTimeout() {
+                    logger.error("Master timeout");
+                    return FAIL;
+                }
+            };
+
+            waiter = new Behaviour() {
+                private boolean run = true;
+
+                @Override
+                public void action() {
+                    String cid = "job" + job.getId();
+                    MessageTemplate template = MessageTemplate
+                            .MatchConversationId(cid);
+                    ACLMessage reply = receive(template);
+                    if (reply != null) {
+                        slave.stop(end);
+                        Message<JobReport> rep = Message.decode(reply,
+                                JobReport.class);
+                        report = rep.getValue();
+                        run = false;
+                        end = report.getStatus() ? OK : FAIL;
+                    } else {
+                        block();
+                    }
+                }
+
+                @Override
+                public boolean done() {
+                    return !run;
+                }
+            };
+
+            addSubBehaviour(slave);
+            addSubBehaviour(waiter);
+        }
+
+        @Override
+        public int onEnd() {
+            return end;
+        }
+    }
+    
     // All the constraints are met, request is about to be scheduled for
     // execution
     registerState(new OneShotBehaviour() {
@@ -262,9 +291,15 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
                     job.getId(), true, "Request accepted");
             sendMessage(reply, Action.JOB_SUBMITTED, resp);
             submitJob(job);
+            
+            final String cid = firstMessage.getConversationId(); 
+            
+            Behaviour b = new ExecSupervisor(cid);
+            registerState(b, EXECUTION);
         }
     }, SUBMIT);
     
+    /*
     // Job is being executed, wait for results
     registerState(new Behaviour() {
         private boolean run = true;
@@ -295,7 +330,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
             return end;
         }
     }, EXECUTION);
-    
+    */
     registerState(new OneShotBehaviour() {
         @Override public void action() {
             logger.error("Execution failure");
@@ -395,7 +430,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
     private void findMaster() {
         DFAgentDescription pattern = new DFAgentDescription();
         ServiceDescription sd = new ServiceDescription();
-        sd.setName("grid-controller");
+        sd.setName(MetagridManager.SERVICE_NAME);
         pattern.addServices(sd);
         DFAgentDescription[] creators = null;
         try {
@@ -419,7 +454,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
         setupGUI();
         
         policyManager.policies.put(new AID("Client", AID.ISLOCALNAME), 
-                new TokenBasedUsage(4));
+                new TokenBasedUsage(2000000000));
         logger.success("PGA '" + name + "' created");
     }
 

@@ -7,10 +7,12 @@ import hesp.protocol.Job;
 import hesp.protocol.JobReport;
 import hesp.protocol.JobRequestResponse;
 import hesp.protocol.Message;
+import hesp.protocol.Action.Category;
 import hesp.util.LogItem.Level;
 import hesp.util.LogSink;
 import jade.core.AID;
 import jade.core.behaviours.Behaviour;
+import jade.core.behaviours.DataStore;
 import jade.core.behaviours.FSMBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
 import jade.lang.acl.ACLMessage;
@@ -59,18 +61,26 @@ public class ClientAgent extends HespAgent {
         
         private static final String POST_JOB = "Post job";
         private static final String WAIT_FOR_RESP = "Wait for response";
+        private static final String SUPERVISE_EXECUTION = "Supervise execution";
         private static final String WAIT_FOR_RESULT = "Wait for result";
         private static final String REJECTED = "Rejected";
         
         private static final int OK = 0;
         private static final int FAIL = 1;
         
+        private static final int KEY_FAIL_REASON = 1234;
+        
+        private DataStore DS = getDataStore();
+        
         public JobExecutor(final AID agent, final Job job) {
             //this.job = job;
             
             registerTransition(POST_JOB, WAIT_FOR_RESP, OK);
-            registerTransition(WAIT_FOR_RESP, WAIT_FOR_RESULT, OK);
+            registerTransition(POST_JOB, REJECTED, FAIL);
+            registerTransition(WAIT_FOR_RESP, SUPERVISE_EXECUTION, OK);
             registerTransition(WAIT_FOR_RESP, REJECTED, FAIL);
+            registerTransition(SUPERVISE_EXECUTION, WAIT_FOR_RESULT, OK);
+            registerTransition(SUPERVISE_EXECUTION, REJECTED, FAIL);
 
             //-------------------------------------------------------
             // Indentation smaller for clarity
@@ -81,10 +91,28 @@ public class ClientAgent extends HespAgent {
     registerFirstState(new OneShotBehaviour() {
         @Override
         public void action() {
-            ACLMessage message = emptyInitMessage(ACLMessage.REQUEST);
+            final ACLMessage message = emptyInitMessage(ACLMessage.REQUEST);
             message.addReceiver(agent);
             sendMessage(message, Action.JOB_REQUEST, job);
             JobExecutor.this.message = message;
+            
+            LinkSupervisionMaster master = new LinkSupervisionMaster(
+                    ClientAgent.this, agent, message.getConversationId()) {
+                
+                @Override
+                protected int slaveTimeout() {
+                    DS.put(KEY_FAIL_REASON, "Agent has died");
+                    return FAIL;
+                }
+                
+                @Override
+                protected int finished() {
+                    System.out.println("Finished");
+                    return OK;
+                }
+            };
+            
+            registerState(master, SUPERVISE_EXECUTION);
         }
     }, POST_JOB);
     
@@ -97,18 +125,34 @@ public class ClientAgent extends HespAgent {
         @Override
         public void action() {
             String cid = message.getConversationId();
-            MessageTemplate template = MessageTemplate.MatchConversationId(cid);
+            MessageTemplate template = MessageTemplate.and(
+                    MessageTemplate.MatchConversationId(cid),
+                    Action.MatchCategory(Category.JOB));
             
             // Wait for next message in this conversation
             ACLMessage reply = receive(template);
             if (reply != null) {
-                Message<JobRequestResponse> msg = 
-                        decode(reply, JobRequestResponse.class);
-                JobRequestResponse resp = msg.getValue();
-                end = resp.isAccepted() ? OK : FAIL;
-                // callback
-                requestProcessed(resp);
-                run = false;
+                if (reply.getPerformative() != ACLMessage.FAILURE) {
+                    Message<JobRequestResponse> msg = 
+                            Message.decode(reply, JobRequestResponse.class);
+                    JobRequestResponse resp = msg.getValue();
+                    if ( resp == null) {
+                        System.out.println(reply.getContent());
+                    }
+                    if (resp.isAccepted()) {
+                        end = OK;
+                    } else {
+                        end = FAIL;
+                        DS.put(KEY_FAIL_REASON, resp.getDetails());
+                    }
+                    // callback
+                    requestProcessed(resp);
+                    run = false;
+                } else {
+                    DS.put(KEY_FAIL_REASON, "Message delivery failure");
+                    run = false;
+                    end = FAIL;
+                }
             } else {
                 block();
             }
@@ -130,23 +174,28 @@ public class ClientAgent extends HespAgent {
     registerLastState(new OneShotBehaviour() {
         @Override
         public void action() {
-            System.out.println("Job was rejected");
+            String message = (String) DS.get(KEY_FAIL_REASON);
+            logger.error("Job failure: " + message);
         }
     }, REJECTED);
     
-    // Job was accepted, wait for results
+    // Job was executed, wait for results
     registerLastState(new Behaviour() {
         private boolean run = true;
         
         @Override
         public void action() {
             String cid = message.getConversationId();
-            MessageTemplate template = MessageTemplate.MatchConversationId(cid);
+            MessageTemplate template = MessageTemplate.and(
+                    MessageTemplate.MatchConversationId(cid),
+                    Action.MatchCategory(Category.JOB));
             
             ACLMessage reply = receive(template);
             if (reply != null) {
-                Message<JobReport> msg = decode(reply, JobReport.class);
+                Message<JobReport> msg = Message.decode(reply, JobReport.class);
                 JobReport report = msg.getValue();
+                if (report == null)
+                    System.err.println(reply.getContent());
                 jobCompleted(report);
                 run = false;
             } else {

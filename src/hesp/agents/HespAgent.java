@@ -14,9 +14,7 @@ import jade.lang.acl.MessageTemplate;
 import java.util.Random;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
 public abstract class HespAgent extends Agent {
     
@@ -102,19 +100,6 @@ public abstract class HespAgent extends Agent {
     
     protected <T> void sendMessage(ACLMessage template, Message<T> message) {
         sendMessage(template, message.getAction(), message.getValue());
-    }
-    
-    
-    protected <T> Message<T> decode(ACLMessage message, Class<T> clazz) {
-        JsonParser parser = new JsonParser();
-        JsonElement tree = parser.parse(message.getContent());
-        JsonObject content = tree.getAsJsonObject();
-        
-        Gson gson = new Gson();
-        Action action = gson.fromJson(content.get("action"), Action.class);
-        T object = gson.fromJson(content.get("object"), clazz);
-        
-        return new Message<>(action, object);
     }
     
     

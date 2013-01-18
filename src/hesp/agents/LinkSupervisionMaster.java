@@ -1,7 +1,10 @@
 package hesp.agents;
 
+import com.google.gson.JsonSyntaxException;
+
 import hesp.protocol.Action;
 import hesp.protocol.Message;
+import hesp.protocol.Action.Category;
 import jade.core.AID;
 import jade.core.behaviours.Behaviour;
 import jade.core.behaviours.ParallelBehaviour;
@@ -30,8 +33,6 @@ public abstract class LinkSupervisionMaster extends ParallelBehaviour {
     private boolean running = true;
     private int end;
     
-    //private long lastBeatSent = System.currentTimeMillis();
-
     private HespAgent master;
     private AID slave;
     private String cid;
@@ -46,7 +47,6 @@ public abstract class LinkSupervisionMaster extends ParallelBehaviour {
             @Override
             protected void onTick() {
                 if (running) {
-                    //lastBeatSent = System.currentTimeMillis();
                     sendBeat();
                 } else {
                     stop();
@@ -60,18 +60,24 @@ public abstract class LinkSupervisionMaster extends ParallelBehaviour {
             
             @Override
             public void action() {
-                MessageTemplate template = MessageTemplate.MatchConversationId(cid);
+                MessageTemplate template = MessageTemplate.and(
+                        MessageTemplate.MatchConversationId(cid),
+                        Action.MatchCategory(Category.LINK_SUPERVISION));
                 ACLMessage ack = master.receive(template);
                 if (ack != null) {
-                    Message<?> msg = master.decode(ack, Object.class);
+                    try {
+                    Message<?> msg = Message.decode(ack, Object.class);
                     switch (msg.getAction()) {
                     case LS_ACK:
                         lastAck = System.currentTimeMillis();
                         break;
                     case LS_END:
-                        running = false;
+                        stopProtocol();
                         end = finished();
                         break;
+                    }
+                    } catch (JsonSyntaxException e) {
+                        end = handleNotUnderstood(ack);
                     }
                 } else {
                     long ackTime = System.currentTimeMillis();
@@ -79,6 +85,7 @@ public abstract class LinkSupervisionMaster extends ParallelBehaviour {
                     if (elapsed > treshold * beatTime) {
                         // Timeout
                         end = slaveTimeout();
+                        stopProtocol();
                     }
                 }
             }
@@ -90,6 +97,11 @@ public abstract class LinkSupervisionMaster extends ParallelBehaviour {
             
         });
     }
+    
+    protected void stopProtocol() {
+        running = false;
+    }
+    
     
     private void sendBeat() {
         ACLMessage message = master.emptyMessage(ACLMessage.REQUEST);
@@ -119,5 +131,9 @@ public abstract class LinkSupervisionMaster extends ParallelBehaviour {
      * {@link #onEnd()}
      */
     protected abstract int slaveTimeout();
+    
+    protected int handleNotUnderstood(ACLMessage message) {
+        return 0;
+    }
 
 }

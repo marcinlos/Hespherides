@@ -1,5 +1,10 @@
 package hesp.protocol;
 
+import com.google.gson.JsonSyntaxException;
+
+import jade.lang.acl.ACLMessage;
+import jade.lang.acl.MessageTemplate;
+
 public enum Action {
 
     SET_OWNER(Category.CONTROL),
@@ -33,6 +38,34 @@ public enum Action {
     
     public Category category() {
         return category;
+    }
+    
+    public static MessageTemplate MatchAction(final Action a) {
+        return new MessageTemplate(new MessageTemplate.MatchExpression() {
+            @Override
+            public boolean match(ACLMessage msg) {
+                try {
+                    Action action = Message.getAction(msg);
+                    return action == a;
+                } catch (JsonSyntaxException e) {
+                    return false;
+                }
+            }
+        });
+    }
+    
+    public static MessageTemplate MatchCategory(final Category category) {
+        return new MessageTemplate(new MessageTemplate.MatchExpression() {
+            @Override
+            public boolean match(ACLMessage msg) {
+                try {
+                    Action action = Message.getAction(msg);
+                    return action.category() == category;
+                } catch (JsonSyntaxException e) {
+                    return false;
+                }
+            }
+        });
     }
     
 }

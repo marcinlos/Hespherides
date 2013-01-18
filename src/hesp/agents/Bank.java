@@ -65,7 +65,7 @@ public class Bank extends HespAgent {
 
     @Override
     protected boolean dispatchMessage(ACLMessage message) {
-        Message<?> content = decode(message, Object.class);
+        Message<?> content = Message.decode(message, Object.class);
         Action action = content.getAction();
         switch (action.category()) {
         case BANK:
@@ -203,17 +203,17 @@ public class Bank extends HespAgent {
             public void action() {
                 System.out.println("BANK: message got");
                 ACLMessage message = (ACLMessage) data.get(FIRST_MESSAGE);
-                Message<?> content = decode(message, Object.class);
+                Message<?> content = Message.decode(message, Object.class);
                 data.put(SENDER, message.getSender());
                 switch (content.getAction()) {
                 case CREATE_ACCOUNT:
                     end = CREATION_T;
-                    data.put(CONTENT, decode(message, AccountCreation.class)
+                    data.put(CONTENT, Message.decode(message, AccountCreation.class)
                             .getValue());
                     break;
                 case TRANSFER:
                     end = TRANSFER_T;
-                    data.put(CONTENT, decode(message, Transfer.class)
+                    data.put(CONTENT, Message.decode(message, Transfer.class)
                             .getValue());
                     break;
                 }

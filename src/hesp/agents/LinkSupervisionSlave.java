@@ -1,6 +1,9 @@
 package hesp.agents;
 
+import com.google.gson.JsonSyntaxException;
+
 import hesp.protocol.Action;
+import hesp.protocol.Action.Category;
 import hesp.protocol.Message;
 import jade.core.AID;
 import jade.core.behaviours.Behaviour;
@@ -38,15 +41,22 @@ public abstract class LinkSupervisionSlave extends Behaviour {
     
     @Override
     public void action() {
-       MessageTemplate template = MessageTemplate.MatchConversationId(cid);
+       MessageTemplate template = MessageTemplate.and(
+               MessageTemplate.MatchConversationId(cid),
+               Action.MatchCategory(Category.LINK_SUPERVISION));
+       
         ACLMessage beat = slave.receive(template);
         
         if (beat != null) {
-            Message<?> msg = slave.decode(beat, Object.class);
-            switch (msg.getAction()) {
-            case LS_BEAT:
-                sendAck(beat);
-                break;
+            try {
+                Message<?> msg = Message.decode(beat, Object.class);
+                switch (msg.getAction()) {
+                case LS_BEAT:
+                    sendAck(beat);
+                    break;
+                }
+            } catch (JsonSyntaxException e) {
+                handleNotUnderstood(beat);
             }
         }
     }
@@ -68,9 +78,13 @@ public abstract class LinkSupervisionSlave extends Behaviour {
         ACLMessage ack = slave.emptyMessage(ACLMessage.INFORM);
         ack.setConversationId(cid);
         ack.addReceiver(master);
-        slave.sendMessage(ack, Action.LS_ACK, null);
+        slave.sendMessage(ack, Action.LS_END, null);
     }
 
     protected abstract int masterTimeout();
+    
+    protected int handleNotUnderstood(ACLMessage message) {
+        return 0;
+    }
     
 }

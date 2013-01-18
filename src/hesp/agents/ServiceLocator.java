@@ -82,7 +82,7 @@ abstract class ServiceLocator extends FSMBehaviour {
     private static final int RESULT_KEY = 132435;
     
     /** Time between initial and second query */
-    private final int initialDelay = 200;
+    private final int initialDelay = 20;
     /**
      * Maximum numer of ignored unsuccessful queries - i.e. number of attempts
      * in exponential backoff algorithm
@@ -123,7 +123,7 @@ abstract class ServiceLocator extends FSMBehaviour {
         registerTransition(UPDATING, UPDATING, IGNORE);
         registerTransition(UPDATING, HALT, STOP);
         registerTransition(TIMED_OUT, HALT, STOP);
-        registerTransition(TIMED_OUT, UPDATING, CONTINUE);
+        registerTransition(TIMED_OUT, UPDATING, CONTINUE, new String[]{UPDATING});
         
         registerFirstState(initial, INITIAL);
         registerState(searching, SEARCHING);
@@ -181,10 +181,11 @@ abstract class ServiceLocator extends FSMBehaviour {
     
     /**
      * Updates internal state and invokes {@link #serviceUpdate(Set)} callback
-     * method.
+     * method if set of known providers changes
      * 
      * @param update Set of just found providers (all returned by the DF query)
-     * @return action code, as retudned by {@link #serviceUpdate(Set)}
+     * @return action code, as returned by {@link #serviceUpdate(Set)} if 
+     * there was a change, or {@link #CONTINUE} otherwise
      */
     private int notifyUpdate(Set<AID> update) {
         Set<AID> found = new HashSet<AID>(update);
@@ -192,7 +193,11 @@ abstract class ServiceLocator extends FSMBehaviour {
         Set<AID> lost = new HashSet<AID>(providers);
         lost.removeAll(update);
         providers = update;
-        return serviceUpdate(found, lost);
+        if (found.isEmpty() && lost.isEmpty()) {
+            return CONTINUE;
+        } else {
+            return serviceUpdate(found, lost);
+        }
     }
     
     private OneShotBehaviour initial = new OneShotBehaviour() {
@@ -293,20 +298,18 @@ abstract class ServiceLocator extends FSMBehaviour {
         @Override
         protected void onTick() {
             Set<AID> res = tryLocate();
-            if (! res.isEmpty()) {
-                int action = notifyUpdate(res);
-                if (action == STOP) {
-                    end = STOP;
-                    stop();
-                } else if (action == CONTINUE) {
-                    end = CONTINUE;
-                } else if (action == RESTART) { 
-                    end = RESTART;
-                    stop();
-                } else {
-                    fail(new IllegalStateException("Invalid action returned"));
-                }
-            } 
+            int action = notifyUpdate(res);
+            if (action == STOP) {
+                end = STOP;
+                stop();
+            } else if (action == CONTINUE) {
+                end = CONTINUE;
+            } else if (action == RESTART) { 
+                end = RESTART;
+                stop();
+            } else {
+                fail(new IllegalStateException("Invalid action returned"));
+            }
         }
         
         @Override

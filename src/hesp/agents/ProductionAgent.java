@@ -117,7 +117,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
         private static final String ACCEPTANCE = "Acceptance";
         private static final String POLICY_MAPPING = "Policy mapping";
         private static final String POLICY_ENFORCING = "Policy enforcing";
-        private static final String REJECT = "Reject";
+        private static final String FAILURE = "Reject";
         private static final String SUBMIT = "Submit";
         private static final String EXECUTION = "Execution";
         private static final String EXEC_SUCCESS = "Exec success";
@@ -140,9 +140,9 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
         public JobSubmissionProcessor(final ACLMessage firstMessage) {
 
             registerTransition(ACCEPTANCE, POLICY_MAPPING, OK);
-            registerTransition(ACCEPTANCE, REJECT, FAIL);
+            registerTransition(ACCEPTANCE, FAILURE, FAIL);
             registerTransition(POLICY_MAPPING, POLICY_ENFORCING, OK);
-            registerTransition(POLICY_ENFORCING, REJECT, FAIL);
+            registerTransition(POLICY_ENFORCING, FAILURE, FAIL);
             registerTransition(POLICY_ENFORCING, SUBMIT, OK);
             registerTransition(SUBMIT, EXECUTION, OK);
             registerTransition(EXECUTION, EXEC_FAILURE, FAIL);
@@ -227,7 +227,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
                     new JobRequestResponse(job.getId(), false, reason);
             sendMessage(reply, Action.JOB_COMPLETED, resp);
         }
-    }, REJECT);
+    }, FAILURE);
     
     final class ExecSupervisor extends ParallelBehaviour {
         private int end = OK;
@@ -299,38 +299,6 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
         }
     }, SUBMIT);
     
-    /*
-    // Job is being executed, wait for results
-    registerState(new Behaviour() {
-        private boolean run = true;
-        private int end = OK;
-        
-        @Override
-        public void action() {
-            String cid = "job" + job.getId();
-            MessageTemplate template = MessageTemplate.MatchConversationId(cid);
-            ACLMessage reply = receive(template);
-            if (reply != null) {
-                Message<JobReport> rep = decode(reply, JobReport.class);
-                report = rep.getValue();
-                run = false;
-                end = report.getStatus() ? OK : FAIL;
-            } else {
-                block();
-            }
-        }
-        
-        @Override 
-        public boolean done() { 
-            return !run; 
-        }
-        
-        @Override
-        public int onEnd() {
-            return end;
-        }
-    }, EXECUTION);
-    */
     registerState(new OneShotBehaviour() {
         @Override public void action() {
             logger.error("Execution failure");

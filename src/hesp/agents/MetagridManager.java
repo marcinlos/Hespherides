@@ -164,7 +164,7 @@ public class MetagridManager extends Agent {
     private void setupAgents() {
         try {
             setupJade();
-            createAgent(Bank.class, "Bank");
+            //createAgent(Bank.class, "Bank");
             createAgent(ProductionAgent.class, "Res1");
             createAgent(ProductionAgent.class, "Res2");
             createAgent(SocialAgent.class, "Soc");

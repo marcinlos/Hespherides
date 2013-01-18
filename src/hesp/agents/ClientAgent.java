@@ -96,6 +96,33 @@ public class ClientAgent extends HespAgent {
             sendMessage(message, Action.JOB_REQUEST, job);
             JobExecutor.this.message = message;
             
+            String cid = message.getConversationId();
+            MessageTemplate template = MessageTemplate.and(
+                    MessageTemplate.MatchConversationId(cid),
+                    Action.MatchCategory(Category.JOB));
+            
+            registerLastState(new TimedReceiver(ClientAgent.this, 4000, 
+                    template) {
+                
+                @Override
+                protected boolean handleMessage(ACLMessage message) {
+                    Message<JobReport> msg = Message.decode(message, 
+                            JobReport.class);
+                    JobReport report = msg.getValue();
+                    jobCompleted(report);
+                    setExitStatus(OK);
+                    return true;
+                }
+                
+                @Override
+                protected void handleTimeout() {
+                    DS.put(KEY_FAIL_REASON, "Timeout during waiting for job "+ 
+                            "execution results");
+                    setExitStatus(FAIL);
+                }
+                
+            }, WAIT_FOR_RESULT);
+            
             LinkSupervisionMaster master = new LinkSupervisionMaster(
                     ClientAgent.this, agent, message.getConversationId()) {
                 
@@ -136,9 +163,6 @@ public class ClientAgent extends HespAgent {
                     Message<JobRequestResponse> msg = 
                             Message.decode(reply, JobRequestResponse.class);
                     JobRequestResponse resp = msg.getValue();
-                    if ( resp == null) {
-                        System.out.println(reply.getContent());
-                    }
                     if (resp.isAccepted()) {
                         end = OK;
                     } else {
@@ -179,37 +203,6 @@ public class ClientAgent extends HespAgent {
         }
     }, REJECTED);
     
-    // Job was executed, wait for results
-    registerLastState(new Behaviour() {
-        private boolean run = true;
-        
-        @Override
-        public void action() {
-            String cid = message.getConversationId();
-            MessageTemplate template = MessageTemplate.and(
-                    MessageTemplate.MatchConversationId(cid),
-                    Action.MatchCategory(Category.JOB));
-            
-            ACLMessage reply = receive(template);
-            if (reply != null) {
-                Message<JobReport> msg = Message.decode(reply, JobReport.class);
-                JobReport report = msg.getValue();
-                if (report == null)
-                    System.err.println(reply.getContent());
-                jobCompleted(report);
-                run = false;
-            } else {
-                block();
-            }
-        }
-
-        @Override
-        public boolean done() {
-            return !run;
-        }
-        
-    }, WAIT_FOR_RESULT);
-    
             //-------------------------------------------------------
             // Smaller indentation ends
             //-------------------------------------------------------
@@ -244,7 +237,8 @@ public class ClientAgent extends HespAgent {
             Gson gson = new Gson();
             Action action = gson.fromJson(msg.get("action"), Action.class);
             if (action == Action.JOB_COMPLETED) {
-                JobReport report = gson.fromJson(msg.get("object"), JobReport.class);
+                JobReport report = gson.fromJson(msg.get("object"), 
+                        JobReport.class);
                 jobCompleted(report);
             }
         } catch (JsonSyntaxException e) {
@@ -329,13 +323,16 @@ public class ClientAgent extends HespAgent {
                     bank = null;
                 }
                 if (! found.isEmpty()) {
-                    logger.success("Bank service found");
                     if (bank == null) {
-                        found.iterator().next();
+                        logger.success("Primary bank service found");
+                        bank = found.iterator().next();
+                    } else {
+                        logger.success("Bank service found");
                     }
                 }
                 banks.addAll(found);
                 banks.removeAll(lost);
+                System.out.println("Update");
                 return ServiceLocator.CONTINUE;
             }
             

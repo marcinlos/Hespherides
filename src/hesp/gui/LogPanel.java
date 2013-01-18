@@ -12,7 +12,6 @@ import java.util.EnumMap;
 import java.util.Map;
 
 import javax.swing.BorderFactory;
-import javax.swing.DefaultListModel;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -31,7 +30,7 @@ public class LogPanel extends JPanel {
 
     private JList<LogItem> list;
     private JScrollPane scroller;
-    private DefaultListModel<LogItem> model;
+    private BoundedListModel<LogItem> model;
     
     /** Mapping of log levels to colors */
     private static final Map<Level, Color> colors = new EnumMap<>(Level.class);
@@ -72,17 +71,21 @@ public class LogPanel extends JPanel {
 
     }
 
-    private void setupUI() {
+    private void setupUI(int size) {
         setLayout(new BorderLayout());
-        model = new DefaultListModel<>();
+        model = new BoundedListModel<>(size);
         list = new JList<>(model);
         list.setCellRenderer(new LogItemRenderer());
         scroller = new JScrollPane(list);
         add(scroller);
     }
+    
+    public LogPanel(int bufferSize) {
+        setupUI(bufferSize);
+    }
 
     public LogPanel() {
-        setupUI();
+        this(100);
     }
     
     /**

@@ -3,17 +3,9 @@ package hesp.agents;
 import hesp.gui.SocialWindow;
 import hesp.gui.Synchronous;
 import hesp.protocol.Action;
-import hesp.protocol.Job;
-import hesp.protocol.JobReport;
-import hesp.protocol.JobRequestResponse;
 import hesp.protocol.Message;
 import hesp.util.LogSink;
 import jade.core.AID;
-import jade.core.behaviours.Behaviour;
-import jade.core.behaviours.DataStore;
-import jade.core.behaviours.FSMBehaviour;
-import jade.core.behaviours.OneShotBehaviour;
-import jade.core.behaviours.ParallelBehaviour;
 import jade.lang.acl.ACLMessage;
 
 import java.util.ArrayList;
@@ -23,14 +15,26 @@ public class SocialAgent extends HespAgent {
     
     private String name;
     
-    private List<AID> ownedPA = new ArrayList<>();
-    private List<AID> purchase = new ArrayList<>();
-    private List<AID> pub = new ArrayList<>();
+    private class ResourceManager {
+        
+        private List<AID> ownedPA = new ArrayList<>();
+        private List<AID> purchase = new ArrayList<>();
+        private List<AID> pub = new ArrayList<>();
+
+        
+    }
     
     private int endownment = 100;
     
     private SocialWindow window;
     private LogSink logger;
+    
+    /**
+     * @return logger associated with this agent 
+     */
+    LogSink getLogger() {
+        return logger;
+    }
     
     
     @Override
@@ -42,191 +46,13 @@ public class SocialAgent extends HespAgent {
             //addBehaviour(new ControlProcessor(message));
             return true;
         case JOB:
-            addBehaviour(new JobSubmissionProcessor(message));
+            addBehaviour(new SocialJobProcessor(this, message));
             return true;
         default:
             return false;
         }
     }
 
-    
-    /**
-     * Asynchronous job submission processor
-     */
-    private class JobSubmissionProcessor extends FSMBehaviour {
-        
-        private static final String ACCEPTANCE = "Acceptance";
-        private static final String POLICY_MAPPING = "Policy mapping";
-        private static final String POLICY_ENFORCING = "Policy enforcing";
-        private static final String REJECT = "Reject";
-        private static final String DISCOVERY = "Discovery";
-        private static final String EXECUTION = "Execution";
-        private static final String EXEC_SUCCESS = "Exec success";
-        private static final String EXEC_FAILURE = "Exec failure";
-        private static final String BILLING = "Billing";
-        
-        /** Default behaviour returns 0 */
-        private static final int OK = 0;
-        private static final int FAIL = 1;
-        
-        /** 
-         * Key to data store associated with string describing the reason
-         * of refusal.
-         */
-        private static final int KEY_FAIL_REASON = 1234;
-        
-        private Job job;
-        private AID sender;
-        private JobReport report;
-        
-        private DataStore DS = getDataStore();
-        
-        public JobSubmissionProcessor(final ACLMessage firstMessage) {
-
-            registerTransition(ACCEPTANCE, POLICY_MAPPING, OK);
-            registerTransition(POLICY_MAPPING, POLICY_ENFORCING, OK);
-            registerTransition(POLICY_ENFORCING, REJECT, FAIL);
-            registerTransition(POLICY_ENFORCING, DISCOVERY, OK);
-            registerTransition(DISCOVERY, EXECUTION, OK);
-            registerTransition(EXECUTION, EXEC_FAILURE, FAIL);
-            registerTransition(EXECUTION, EXEC_SUCCESS, OK);
-            registerTransition(EXEC_FAILURE, BILLING, OK);
-            registerTransition(EXEC_SUCCESS, BILLING, OK);
-            
-            sender = firstMessage.getSender();
-            
-            //-------------------------------------------------------
-            // Indentation smaller for clarity
-            //-------------------------------------------------------
-            
-    registerFirstState(new OneShotBehaviour() {
-        
-        private int end = OK;
-        
-        @Override public void action() {
-            String name = sender.getLocalName();
-            logger.info("Incoming job request (from " + name + ")");
-            Message<Job> content = Message.decode(firstMessage, Job.class);
-            job = content.getValue();
-        }
-        
-        @Override
-        public int onEnd() {
-            return end;
-        }
-        
-    }, ACCEPTANCE);
-    
-    registerState(new OneShotBehaviour() {
-        @Override public void action() {
-            System.out.println("Policy mapping");
-        }
-    }, POLICY_MAPPING);
-    
-    registerState(new OneShotBehaviour() {
-        @Override public void action() {
-            System.out.println("Policy enforcing");
-        }
-        @Override public int onEnd() { 
-            DS.put(KEY_FAIL_REASON, "I dont wanna");
-            return Math.random() > 0.5 ? OK : FAIL; 
-        }
-    }, POLICY_ENFORCING);
-    
-    registerLastState(new OneShotBehaviour() {
-        @Override public void action() {
-            ACLMessage reply = firstMessage.createReply();
-            String reason = (String) DS.get(KEY_FAIL_REASON);
-            JobRequestResponse resp = 
-                    new JobRequestResponse(job.getId(), false, reason);
-            sendMessage(reply, Action.JOB_COMPLETED, resp);
-        }
-    }, REJECT);
-    
-    registerState(new OneShotBehaviour() {
-        @Override public void action() {
-            AID aid = new AID("Res1", AID.ISLOCALNAME);
-            String cid = firstMessage.getConversationId();
-            
-            final LinkSupervisionSlave slave = new LinkSupervisionSlave(sender, 
-                    SocialAgent.this, cid);
-            
-            final LinkSupervisionMaster master = new LinkSupervisionMaster(
-                    SocialAgent.this, aid, cid) {
-                
-                @Override
-                protected int slaveTimeout() {
-                    System.out.println("Production agent timed out");
-                    report = new JobReport(job.getId(), false, "Production " +
-                            "agent timed out");
-                    slave.stop(FAIL);
-                    return FAIL;
-                }
-                
-                @Override
-                protected int finished() {
-                    System.out.println("Production agent finished");
-                    slave.stop(OK);
-                    return OK;
-                }
-            };
-            
-            ParallelBehaviour exec = new ParallelBehaviour() {
-                {
-                    addSubBehaviour(slave);
-                    addSubBehaviour(master);
-                }
-                
-                @Override
-                public int onEnd() {
-                    super.onEnd();
-                    return slave.getExitStatus();
-                }
-            };
-            registerState(exec, EXECUTION);
-            
-            // TODO: Make it real
-            ACLMessage reply = firstMessage.createReply();
-            JobRequestResponse resp = new JobRequestResponse(
-                    job.getId(), true, "Request accepted");
-            sendMessage(reply, Action.JOB_SUBMITTED, resp);
-        }
-    }, DISCOVERY);
-    
-    registerState(new OneShotBehaviour() {
-        @Override
-        public void action() {
-        }
-    }, EXECUTION);
-    
-    registerState(new OneShotBehaviour() {
-        @Override public void action() {
-            logger.error("Execution failure");
-            ACLMessage reply = firstMessage.createReply();
-            sendMessage(reply, Action.JOB_COMPLETED, report);
-        }
-    }, EXEC_FAILURE);
-    
-    registerState(new OneShotBehaviour() {
-        @Override public void action() {
-            ACLMessage reply = firstMessage.createReply();
-            sendMessage(reply, Action.JOB_COMPLETED, report);
-        }
-    }, EXEC_SUCCESS);
-    
-    registerLastState(new OneShotBehaviour() {
-        @Override public void action() {
-            System.out.println("It's pay time!");
-        }
-    }, BILLING);
-    
-            //-------------------------------------------------------
-            // Smaller indentation ends
-            //-------------------------------------------------------
-    
-        }
-    }
-    
     
     @Override
     public void setup() {

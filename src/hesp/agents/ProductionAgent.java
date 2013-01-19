@@ -139,6 +139,8 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
 
         public JobSubmissionProcessor(final ACLMessage firstMessage) {
 
+            super(ProductionAgent.this);
+            
             registerTransition(ACCEPTANCE, POLICY_MAPPING, OK);
             registerTransition(ACCEPTANCE, FAILURE, FAIL);
             registerTransition(POLICY_MAPPING, POLICY_ENFORCING, OK);
@@ -160,7 +162,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
      * Initial state, we choose wether or not to process the request based
      * on amount of queued jobs.
      */
-    registerFirstState(new OneShotBehaviour() {
+    registerFirstState(new OneShotBehaviour(myAgent) {
         
         private int end = OK;
         
@@ -187,7 +189,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
     /*
      * We use the policy manager to map the request to the policy
      */
-    registerState(new OneShotBehaviour() {
+    registerState(new OneShotBehaviour(myAgent) {
         @Override
         public void action() {
             //System.out.println("Policy mapping");
@@ -196,7 +198,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
         }
     }, POLICY_MAPPING);
     
-    registerState(new OneShotBehaviour() {
+    registerState(new OneShotBehaviour(myAgent) {
         
         private int end = OK;
         
@@ -218,7 +220,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
     }, POLICY_ENFORCING);
     
     // Job request was rejected due to policy & modality constraints
-    registerLastState(new OneShotBehaviour() {
+    registerLastState(new OneShotBehaviour(myAgent) {
         @Override public void action() {
             //System.out.println("Rejection");
             ACLMessage reply = firstMessage.createReply();
@@ -230,13 +232,14 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
     }, FAILURE);
     
     final class ExecSupervisor extends ParallelBehaviour {
+        
         private int end = OK;
         LinkSupervisionSlave slave;
         Behaviour waiter;
 
-        private ExecSupervisor(String cid) {
-            slave = new LinkSupervisionSlave(sender, ProductionAgent.this,
-                    cid) {
+        public ExecSupervisor(HespAgent a, String cid) {
+            super(a, ParallelBehaviour.WHEN_ALL);
+            slave = new LinkSupervisionSlave(sender, a, cid) {
                 @Override
                 protected int masterTimeout() {
                     logger.error("Master timeout");
@@ -283,7 +286,7 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
     
     // All the constraints are met, request is about to be scheduled for
     // execution
-    registerState(new OneShotBehaviour() {
+    registerState(new OneShotBehaviour(myAgent) {
         @Override public void action() {
             System.out.println("Submitting");
             ACLMessage reply = firstMessage.createReply();
@@ -294,12 +297,12 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
             
             final String cid = firstMessage.getConversationId(); 
             
-            Behaviour b = new ExecSupervisor(cid);
+            Behaviour b = new ExecSupervisor((HespAgent) myAgent, cid);
             registerState(b, EXECUTION);
         }
     }, SUBMIT);
     
-    registerState(new OneShotBehaviour() {
+    registerState(new OneShotBehaviour(myAgent) {
         @Override public void action() {
             logger.error("Execution failure");
             ACLMessage reply = firstMessage.createReply();
@@ -307,14 +310,14 @@ public class ProductionAgent extends HespAgent implements JobProgressListener {
         }
     }, EXEC_FAILURE);
     
-    registerState(new OneShotBehaviour() {
+    registerState(new OneShotBehaviour(myAgent) {
         @Override public void action() {
             ACLMessage reply = firstMessage.createReply();
             sendMessage(reply, Action.JOB_COMPLETED, report);
         }
     }, EXEC_SUCCESS);
     
-    registerLastState(new OneShotBehaviour() {
+    registerLastState(new OneShotBehaviour(myAgent) {
         @Override public void action() {
             System.out.println("It's pay time!");
         }

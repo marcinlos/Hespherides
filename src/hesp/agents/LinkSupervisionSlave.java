@@ -35,7 +35,7 @@ public class LinkSupervisionSlave extends Behaviour {
     }
     
     private void sendAck(ACLMessage beat) {
-        System.out.println("Ack");
+        //System.out.println("Ack");
         ACLMessage ack = beat.createReply();
         slave.sendMessage(ack, Action.LS_ACK, null);
     }

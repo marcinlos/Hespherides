@@ -2,6 +2,8 @@ package hesp.agents;
 
 import hesp.gui.ClientWindow;
 import hesp.gui.Synchronous;
+import hesp.protocol.AccountCreation;
+import hesp.protocol.AccountResponse;
 import hesp.protocol.Action;
 import hesp.protocol.Job;
 import hesp.protocol.JobReport;
@@ -73,7 +75,6 @@ public class ClientAgent extends HespAgent {
         private DataStore DS = getDataStore();
         
         public JobExecutor(final AID agent, final Job job) {
-            //this.job = job;
             
             registerTransition(POST_JOB, WAIT_FOR_RESP, OK);
             registerTransition(POST_JOB, REJECTED, FAIL);
@@ -335,6 +336,25 @@ public class ClientAgent extends HespAgent {
                     if (bank == null) {
                         logger.success("Primary bank service found");
                         bank = found.iterator().next();
+                        AccountCreation account = new AccountCreation(getLocalName());
+                        ClientAgent.this.addBehaviour(new BankAccountCreator(
+                                ClientAgent.this, account, bank) {
+                            
+                            @Override
+                            public void handleTimeout() {
+                                System.out.println("Jaaaki szit");
+                            }
+                            
+                            @Override
+                            public void handleSuccess(AccountResponse resp) {
+                                System.out.println("Fajno!");
+                            }
+                            
+                            @Override
+                            public void handleFailure() {
+                                System.out.println("No duuupa :(");
+                            }
+                        });
                     } else {
                         logger.success("Bank service found");
                     }

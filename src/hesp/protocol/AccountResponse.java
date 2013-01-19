@@ -2,7 +2,7 @@ package hesp.protocol;
 
 public class AccountResponse {
     
-    public final boolean success;
+    public final boolean succeeded;
     public final String id;
     public final String details;
     
@@ -15,7 +15,7 @@ public class AccountResponse {
     }
     
     private AccountResponse(boolean success, String id, String details) {
-        this.success = success;
+        this.succeeded = success;
         this.id = id;
         this.details = details;
     }

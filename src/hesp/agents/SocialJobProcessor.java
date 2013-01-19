@@ -1,5 +1,6 @@
 package hesp.agents;
 
+import hesp.agents.SocialAgent.Accessor;
 import hesp.protocol.Action;
 import hesp.protocol.Job;
 import hesp.protocol.JobReport;
@@ -48,12 +49,15 @@ class SocialJobProcessor extends FSMBehaviour {
     private DataStore DS = getDataStore();
     private LogSink logger;
     private SocialAgent agent;
+    private Accessor accessor;
     
-    public SocialJobProcessor(SocialAgent socialAgent, ACLMessage message) {
+    public SocialJobProcessor(SocialAgent socialAgent, Accessor accessor, 
+            ACLMessage message) {
 
         super(socialAgent);
         this.agent = socialAgent;
-        this.logger = agent.getLogger();
+        this.accessor = accessor;
+        this.logger = accessor.getLogger();
         
         registerTransition(ACCEPTANCE, POLICY_MAPPING, OK);
         registerTransition(POLICY_MAPPING, POLICY_ENFORCING, OK);

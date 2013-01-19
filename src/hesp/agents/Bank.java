@@ -272,6 +272,7 @@ public class Bank extends HespAgent {
                     end = FAIL;
                 }
                 sendMessage(reply, Action.CREATE_ACCOUNT_ACK, response);
+                System.out.println(reply);
             }
             
             @Override

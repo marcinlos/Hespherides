@@ -29,13 +29,17 @@ public class SocialAgent extends HespAgent {
     private SocialWindow window;
     private LogSink logger;
     
-    /**
-     * @return logger associated with this agent 
-     */
-    LogSink getLogger() {
-        return logger;
+    interface Accessor {
+        LogSink getLogger();
     }
     
+    private Accessor accessor = new Accessor() {
+        
+        @Override
+        public LogSink getLogger() {
+            return logger;
+        }
+    };
     
     @Override
     protected boolean dispatchMessage(ACLMessage message) {
@@ -46,13 +50,12 @@ public class SocialAgent extends HespAgent {
             //addBehaviour(new ControlProcessor(message));
             return true;
         case JOB:
-            addBehaviour(new SocialJobProcessor(this, message));
+            addBehaviour(new SocialJobProcessor(this, accessor, message));
             return true;
         default:
             return false;
         }
     }
-
     
     @Override
     public void setup() {
